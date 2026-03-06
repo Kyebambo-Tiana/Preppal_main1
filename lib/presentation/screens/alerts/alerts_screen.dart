@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:prepal2/presentation/providers/dashboard_provider.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({Key? key}) : super(key: key);
@@ -8,73 +10,128 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
-  // Mock alerts data
-  final List<Map<String, dynamic>> alerts = [
-    {
-      'type': 'critical',
-      'icon': Icons.warning_amber_rounded,
-      'title': 'Mega meat pie',
-      'message': '8 PCS over Optimal',
-      'time': '2 hours ago',
-      'icon_emoji': '🥧',
-    },
-    {
-      'type': 'critical',
-      'icon': Icons.warning_amber_rounded,
-      'title': 'Spaghetti',
-      'message': 'Prepare 24KG more',
-      'time': '1 hour ago',
-      'icon_emoji': '🍝',
-    },
-    {
-      'type': 'warning',
-      'icon': Icons.info_outline_rounded,
-      'title': 'Jollof rice',
-      'message': 'Stock below optimal level',
-      'time': '30 min ago',
-      'icon_emoji': '🍚',
-    },
-    {
-      'type': 'info',
-      'icon': Icons.check_circle_outline_rounded,
-      'title': 'Chicken',
-      'message': 'Stock at optimal level',
-      'time': '15 min ago',
-      'icon_emoji': '🍗',
-    },
-    {
-      'type': 'critical',
-      'icon': Icons.warning_amber_rounded,
-      'title': 'Jollof rice (Brown)',
-      'message': 'Expired product detected',
-      'time': '5 min ago',
-      'icon_emoji': '🍚',
-    },
-  ];
-
   String selectedFilter = 'All';
+  bool _showCriticalBanner = true;
+  bool _highPriorityFirst = true;
 
-  List<Map<String, dynamic>> get filteredAlerts {
-    if (selectedFilter == 'All') return alerts;
-    return alerts.where((alert) => alert['type'] == selectedFilter).toList();
+  int _severityRank(String severity) {
+    switch (severity) {
+      case 'High':
+        return 0;
+      case 'Medium':
+        return 1;
+      case 'Low':
+        return 2;
+      default:
+        return 3;
+    }
   }
 
-  Color _getAlertColor(String type) {
-    switch (type) {
-      case 'critical':
+  void _openSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Alert Settings',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show critical alert banner'),
+                      value: _showCriticalBanner,
+                      onChanged: (v) {
+                        setState(() => _showCriticalBanner = v);
+                        setModalState(() {});
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Sort high priority first'),
+                      value: _highPriorityFirst,
+                      onChanged: (v) {
+                        setState(() => _highPriorityFirst = v);
+                        setModalState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            selectedFilter = 'All';
+                            _showCriticalBanner = true;
+                            _highPriorityFirst = true;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Reset alert settings'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Color _getAlertColor(String severity) {
+    switch (severity) {
+      case 'High':
         return const Color(0xFFD32F2F);
-      case 'warning':
-        return const Color(0xFFFFC107);
-      case 'info':
-        return const Color(0xFF4CAF50);
+      case 'Medium':
+        return const Color(0xFFFFA726);
+      case 'Low':
+        return const Color(0xFF66BB6A);
       default:
         return Colors.grey;
     }
   }
 
+  IconData _getAlertIcon(String severity) {
+    switch (severity) {
+      case 'High':
+        return Icons.warning_amber_rounded;
+      case 'Medium':
+        return Icons.info_outline_rounded;
+      case 'Low':
+        return Icons.check_circle_outline_rounded;
+      default:
+        return Icons.notifications_none;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    int criticalCount = alerts.where((a) => a['type'] == 'critical').length;
+    final dashboard = context.watch<DashboardProvider>();
+    final alerts = dashboard.dailyAlerts;
+
+    final filteredAlerts = selectedFilter == 'All'
+        ? alerts
+        : alerts.where((alert) => alert.severity == selectedFilter).toList();
+
+    if (_highPriorityFirst) {
+      filteredAlerts.sort((a, b) => _severityRank(a.severity).compareTo(_severityRank(b.severity)));
+    }
+
+    final highCount = alerts.where((a) => a.severity == 'High').length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -86,14 +143,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
+            onPressed: _openSettingsSheet,
           ),
         ],
       ),
       body: Column(
         children: [
           // Critical alert banner
-          if (criticalCount > 0)
+          if (_showCriticalBanner && highCount > 0)
             Container(
               color: const Color(0xFFD35A2A),
               padding: const EdgeInsets.all(16),
@@ -119,7 +176,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '$criticalCount item(s) need immediate attention',
+                          '$highCount item(s) need immediate attention',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.white70,
@@ -148,26 +205,26 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
-                    label: 'Critical',
-                    isSelected: selectedFilter == 'critical',
+                    label: 'High',
+                    isSelected: selectedFilter == 'High',
                     onTap: () {
-                      setState(() => selectedFilter = 'critical');
+                      setState(() => selectedFilter = 'High');
                     },
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
-                    label: 'Warning',
-                    isSelected: selectedFilter == 'warning',
+                    label: 'Medium',
+                    isSelected: selectedFilter == 'Medium',
                     onTap: () {
-                      setState(() => selectedFilter = 'warning');
+                      setState(() => selectedFilter = 'Medium');
                     },
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
-                    label: 'Info',
-                    isSelected: selectedFilter == 'info',
+                    label: 'Low',
+                    isSelected: selectedFilter == 'Low',
                     onTap: () {
-                      setState(() => selectedFilter = 'info');
+                      setState(() => selectedFilter = 'Low');
                     },
                   ),
                 ],
@@ -206,7 +263,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       final alert = filteredAlerts[index];
                       return _AlertCard(
                         alert: alert,
-                        alertColor: _getAlertColor(alert['type']),
+                        alertColor: _getAlertColor(alert.severity),
+                        icon: _getAlertIcon(alert.severity),
                       );
                     },
                   ),
@@ -256,12 +314,14 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _AlertCard extends StatelessWidget {
-  final Map<String, dynamic> alert;
+  final DashboardAlert alert;
   final Color alertColor;
+  final IconData icon;
 
   const _AlertCard({
     required this.alert,
     required this.alertColor,
+    required this.icon,
   });
 
   @override
@@ -295,7 +355,7 @@ class _AlertCard extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              alert['icon'],
+              icon,
               color: alertColor,
               size: 24,
             ),
@@ -308,7 +368,7 @@ class _AlertCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  alert['title'],
+                  alert.productName,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -317,16 +377,16 @@ class _AlertCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  alert['message'],
+                  alert.message,
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  alert['time'],
-                  style: const TextStyle(
+                const Text(
+                  'Live inventory alert',
+                  style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey,
                   ),
@@ -335,10 +395,21 @@ class _AlertCard extends StatelessWidget {
             ),
           ),
 
-          // Product emoji
-          Text(
-            alert['icon_emoji'],
-            style: const TextStyle(fontSize: 24),
+          // Severity badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: alertColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              alert.severity,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: alertColor,
+              ),
+            ),
           ),
         ],
       ),

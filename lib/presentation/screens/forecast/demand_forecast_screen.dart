@@ -19,6 +19,51 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
     });
   }
 
+  int _totalTomorrowUnits(List<Map<String, dynamic>> products) {
+    return products.fold<int>(0, (sum, product) {
+      final tomorrow = (product['tomorrow'] as num?)?.toInt() ?? 0;
+      return sum + tomorrow;
+    });
+  }
+
+  double _averageConfidence(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) return 0;
+    final total = products.fold<int>(0, (sum, product) {
+      return sum + ((product['confidence'] as num?)?.toInt() ?? 0);
+    });
+    return total / products.length;
+  }
+
+  double _averageDemandChange(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) return 0;
+    double totalPercent = 0;
+    for (final product in products) {
+      final today = (product['today'] as num?)?.toDouble() ?? 0;
+      final tomorrow = (product['tomorrow'] as num?)?.toDouble() ?? 0;
+      if (today <= 0) continue;
+      totalPercent += ((tomorrow - today) / today) * 100;
+    }
+    return totalPercent / products.length;
+  }
+
+  Map<String, dynamic>? _highestDemandItem(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) return null;
+    return products.reduce((a, b) {
+      final aTomorrow = (a['tomorrow'] as num?)?.toDouble() ?? 0;
+      final bTomorrow = (b['tomorrow'] as num?)?.toDouble() ?? 0;
+      return aTomorrow >= bTomorrow ? a : b;
+    });
+  }
+
+  Map<String, dynamic>? _lowestDemandItem(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) return null;
+    return products.reduce((a, b) {
+      final aTomorrow = (a['tomorrow'] as num?)?.toDouble() ?? 0;
+      final bTomorrow = (b['tomorrow'] as num?)?.toDouble() ?? 0;
+      return aTomorrow <= bTomorrow ? a : b;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ForecastProvider>(
@@ -261,6 +306,100 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                       ),
                     ),
 
+                    const SizedBox(height: 14),
+
+                    // Extra summary details requested in design
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _ForecastMetricCard(
+                              title: 'Total Tomorrow',
+                              value:
+                                  '${_totalTomorrowUnits(forecastProvider.productForecasts)} units',
+                              subtitle: 'Across all items',
+                              icon: Icons.inventory_2_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ForecastMetricCard(
+                              title: 'Avg Confidence',
+                              value:
+                                  '${_averageConfidence(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                              subtitle: 'Model confidence',
+                              icon: Icons.verified_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _ForecastMetricCard(
+                              title: 'Avg Demand Change',
+                              value:
+                                  '${_averageDemandChange(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                              subtitle: 'Tomorrow vs today',
+                              icon: Icons.timeline,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ForecastMetricCard(
+                              title: 'Top Demand Item',
+                              value:
+                                  '${(_highestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')}',
+                              subtitle:
+                                  '${((_highestDemandItem(forecastProvider.productForecasts)?['tomorrow'] as num?)?.toInt() ?? 0)} units tomorrow',
+                              icon: Icons.local_fire_department_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFECECEC)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.arrow_downward,
+                              size: 18,
+                              color: Color(0xFF5E5E5E),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Lowest expected demand: ${(_lowestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')} (${((_lowestDemandItem(forecastProvider.productForecasts)?['tomorrow'] as num?)?.toInt() ?? 0)} units)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF5E5E5E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
 
                     // Per-item forecasts
@@ -307,6 +446,68 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
               ),
     );
       },
+    );
+  }
+}
+
+class _ForecastMetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+
+  const _ForecastMetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFECECEC)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFFD32F2F)),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

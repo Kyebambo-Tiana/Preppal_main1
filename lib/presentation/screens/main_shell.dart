@@ -4,7 +4,7 @@ import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
 import 'package:prepal2/presentation/screens/dashboard/dashboard_screen.dart';
-import 'package:prepal2/presentation/screens/forecast/forecast_screen.dart';
+import 'package:prepal2/presentation/screens/forecast/demand_forecast_screen.dart';
 import 'package:prepal2/presentation/screens/inventory/inventory_list_screen.dart';
 import 'package:prepal2/presentation/screens/alerts/alerts_screen.dart';
 
@@ -20,7 +20,7 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const ForecastScreen(),
+    const DemandForecastScreen(),
     const InventoryListScreen(),
     const AlertsScreen(),
   ];

@@ -73,7 +73,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
         });
       } else if (_isLow(p)) {
         insights.add({
-          'message': 'Alert message',
+          'message': '${p.name} is running low',
           'product': p.name,
           'label': 'Low',
         });
@@ -328,12 +328,12 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color bg = color.withValues(alpha: 0.12);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
@@ -395,10 +395,19 @@ class _ProductCard extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(10),
+                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.fastfood,
-                      size: 26, color: Color(0xFFFF8A65)),
+                  alignment: Alignment.center,
+                  child: Text(
+                    product.name.isNotEmpty
+                        ? product.name[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFFF8A65),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

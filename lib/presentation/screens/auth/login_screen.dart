@@ -36,19 +36,17 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      // Load businesses to check if user already set one up
       await context.read<BusinessProvider>().loadBusinesses();
-
       if (!mounted) return;
 
       final hasBusiness = context.read<BusinessProvider>().hasBusiness;
 
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              hasBusiness ? const MainShell() : const BusinessDetailsScreen(),
+          builder: (_) => hasBusiness ? const MainShell() : const BusinessDetailsScreen(),
         ),
+        (route) => false,
       );
     }
   }
