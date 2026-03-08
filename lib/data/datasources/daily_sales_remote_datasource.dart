@@ -6,7 +6,10 @@ abstract class DailySalesRemoteDataSource {
   Future<List<Map<String, dynamic>>> getSalesForBusiness(String businessId);
   Future<Map<String, dynamic>> getSaleById(String id);
   Future<Map<String, dynamic>> addSale(Map<String, dynamic> saleData);
-  Future<Map<String, dynamic>> updateSale(String id, Map<String, dynamic> updates);
+  Future<Map<String, dynamic>> updateSale(
+    String id,
+    Map<String, dynamic> updates,
+  );
   Future<void> deleteSale(String id);
 }
 
@@ -16,15 +19,27 @@ class DailySalesRemoteDataSourceImpl implements DailySalesRemoteDataSource {
   DailySalesRemoteDataSourceImpl(this._apiClient);
 
   @override
-  Future<List<Map<String, dynamic>>> getSalesForBusiness(String businessId) async {
+  Future<List<Map<String, dynamic>>> getSalesForBusiness(
+    String businessId,
+  ) async {
     final response = await _apiClient.get(
       ApiConstants.salesByBusiness(businessId),
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = jsonDecode(response.body);
+    final body = decoded is Map<String, dynamic>
+        ? decoded
+        : <String, dynamic>{};
 
     if (response.statusCode == 200 && body['success'] == true) {
       final rawData = body['data'];
-      if (rawData is List) return rawData.cast<Map<String, dynamic>>();
+      if (rawData is List) {
+        return rawData.whereType<Map<String, dynamic>>().toList(
+          growable: false,
+        );
+      }
+      if (rawData is Map<String, dynamic>) {
+        return [rawData];
+      }
       return [];
     } else if (body['success'] == false) {
       return []; // No sales yet — not an error
@@ -47,20 +62,29 @@ class DailySalesRemoteDataSourceImpl implements DailySalesRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>> addSale(Map<String, dynamic> saleData) async {
+    final payload = <String, dynamic>{...saleData};
+
     // Ensure businessId is added to saleData if needed.
     final businessId = _apiClient.getBusinessId();
-    if (businessId != null && !saleData.containsKey('businessId')) {
-      saleData['businessId'] = businessId;
+    if (businessId != null && !payload.containsKey('businessId')) {
+      payload['businessId'] = businessId;
     }
 
     final response = await _apiClient.post(
       ApiConstants.salesCreate,
-      body: saleData,
+      body: payload,
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = jsonDecode(response.body);
+    final body = decoded is Map<String, dynamic>
+        ? decoded
+        : <String, dynamic>{};
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return body['data'] as Map<String, dynamic>;
+      final data = body['data'];
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+      return payload;
     } else {
       throw Exception(body['message'] ?? 'Failed to add sale');
     }
@@ -68,7 +92,9 @@ class DailySalesRemoteDataSourceImpl implements DailySalesRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>> updateSale(
-      String id, Map<String, dynamic> updates) async {
+    String id,
+    Map<String, dynamic> updates,
+  ) async {
     final response = await _apiClient.put(
       ApiConstants.saleUpdate(id),
       body: updates,

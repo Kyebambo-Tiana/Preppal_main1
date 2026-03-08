@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'api_constants.dart';
 
@@ -12,7 +13,7 @@ class ApiClient {
   String? _businessId; // cached after business load
 
   ApiClient({http.Client? httpClient})
-      : httpClient = httpClient ?? http.Client();
+    : httpClient = httpClient ?? http.Client();
 
   /// Call this once in main() before using ApiClient
   Future<void> init() async {
@@ -56,9 +57,7 @@ class ApiClient {
   // ── Headers ─────────────────────────────────────────────────
 
   Map<String, String> _getHeaders() {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
+    final headers = <String, String>{'Content-Type': 'application/json'};
     if (_authToken != null) {
       headers['Authorization'] = 'Bearer $_authToken';
     }
@@ -67,13 +66,68 @@ class ApiClient {
 
   // ── HTTP Methods ────────────────────────────────────────────
 
+  Future<http.Response> _sendWithRetry(
+    Future<http.Response> Function() request, {
+    required String requestName,
+  }) async {
+    var attempt = 0;
+
+    while (true) {
+      try {
+        final response = await request().timeout(
+          const Duration(seconds: ApiConstants.connectionTimeout),
+        );
+        _log(response);
+        return response;
+      } catch (e) {
+        final canRetry =
+            attempt < ApiConstants.maxNetworkRetries &&
+            _isRetryableNetworkIssue(e);
+
+        if (!canRetry) {
+          if (e is TimeoutException) {
+            throw Exception(
+              'Network timeout. Please check your connection and try again.',
+            );
+          }
+
+          if (_isRetryableNetworkIssue(e)) {
+            throw Exception(
+              'Network error. Please check your connection and try again.',
+            );
+          }
+
+          rethrow;
+        }
+
+        final delayMs = ApiConstants.retryBaseDelayMs * (1 << attempt);
+        attempt++;
+        print(
+          'Retrying $requestName (attempt ${attempt + 1}/${ApiConstants.maxNetworkRetries + 1})...',
+        );
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+    }
+  }
+
+  bool _isRetryableNetworkIssue(Object error) {
+    if (error is TimeoutException || error is http.ClientException) {
+      return true;
+    }
+
+    final message = error.toString().toLowerCase();
+    return message.contains('xmlhttprequest') ||
+        message.contains('network request failed') ||
+        message.contains('failed to fetch') ||
+        message.contains('connection closed');
+  }
+
   Future<http.Response> get(String endpoint) async {
     final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-    final response = await httpClient
-        .get(url, headers: _getHeaders())
-        .timeout(const Duration(seconds: ApiConstants.connectionTimeout));
-    _log(response);
-    return response;
+    return _sendWithRetry(
+      () => httpClient.get(url, headers: _getHeaders()),
+      requestName: 'GET $endpoint',
+    );
   }
 
   Future<http.Response> post(
@@ -81,11 +135,11 @@ class ApiClient {
     required Map<String, dynamic> body,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-    final response = await httpClient
-        .post(url, headers: _getHeaders(), body: jsonEncode(body))
-        .timeout(const Duration(seconds: ApiConstants.connectionTimeout));
-    _log(response);
-    return response;
+    return _sendWithRetry(
+      () =>
+          httpClient.post(url, headers: _getHeaders(), body: jsonEncode(body)),
+      requestName: 'POST $endpoint',
+    );
   }
 
   Future<http.Response> put(
@@ -93,20 +147,18 @@ class ApiClient {
     required Map<String, dynamic> body,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-    final response = await httpClient
-        .put(url, headers: _getHeaders(), body: jsonEncode(body))
-        .timeout(const Duration(seconds: ApiConstants.connectionTimeout));
-    _log(response);
-    return response;
+    return _sendWithRetry(
+      () => httpClient.put(url, headers: _getHeaders(), body: jsonEncode(body)),
+      requestName: 'PUT $endpoint',
+    );
   }
 
   Future<http.Response> delete(String endpoint) async {
     final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-    final response = await httpClient
-        .delete(url, headers: _getHeaders())
-        .timeout(const Duration(seconds: ApiConstants.connectionTimeout));
-    _log(response);
-    return response;
+    return _sendWithRetry(
+      () => httpClient.delete(url, headers: _getHeaders()),
+      requestName: 'DELETE $endpoint',
+    );
   }
 
   /// POST to the ML service (different base URL, no auth needed)
@@ -115,15 +167,14 @@ class ApiClient {
     required Map<String, dynamic> body,
   }) async {
     final uri = Uri.parse(url);
-    final response = await httpClient
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        )
-        .timeout(const Duration(seconds: ApiConstants.connectionTimeout));
-    _log(response);
-    return response;
+    return _sendWithRetry(
+      () => httpClient.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ),
+      requestName: 'POST $url',
+    );
   }
 
   void _log(http.Response response) {

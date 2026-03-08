@@ -16,6 +16,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
   String? _errorMessage;
   String? _userEmail; // stored for verification screen
+  bool _proceedToVerification = false;
 
   AuthProvider({
     required this.loginUseCase,
@@ -29,6 +30,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
   String? get userEmail => _userEmail;
+  bool get shouldProceedToVerification => _proceedToVerification;
   bool get isLoading => _status == AuthStatus.loading;
 
   // ── Session Resolution ──────────────────────────────────────
@@ -52,10 +54,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ── Login ───────────────────────────────────────────────────
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
     notifyListeners();
@@ -82,6 +81,7 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
+    _proceedToVerification = false;
     notifyListeners();
 
     try {
@@ -95,12 +95,15 @@ class AuthProvider extends ChangeNotifier {
         businessName: '',
       );
       _userEmail = email;
+      _proceedToVerification = true;
       // Not authenticated yet — email verification required
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = _clean(e);
+      _userEmail = email;
+      _proceedToVerification = _shouldContinueToVerification(_errorMessage!);
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return false;
@@ -137,7 +140,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ── Resend Verification 
+  // ── Resend Verification
   Future<bool> resendVerificationEmail(String email) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
@@ -172,6 +175,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _clean(Object e) =>
-      e.toString().replaceAll('Exception: ', '');
+  String _clean(Object e) => e.toString().replaceAll('Exception: ', '');
+
+  bool _shouldContinueToVerification(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('account may have already been created') ||
+        normalized.contains('already exists') ||
+        normalized.contains('already taken') ||
+        normalized.contains('duplicate');
+  }
 }

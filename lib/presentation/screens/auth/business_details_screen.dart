@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:prepal2/presentation/providers/auth_provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:prepal2/presentation/screens/auth/verification_screen.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   const BusinessDetailsScreen({super.key});
@@ -13,15 +15,21 @@ class BusinessDetailsScreen extends StatefulWidget {
 class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();
-  final _locationController = TextEditingController();    // renamed from contactAddress
+  final _locationController =
+      TextEditingController(); // renamed from contactAddress
   final _contactNumberController = TextEditingController();
   final _websiteController = TextEditingController();
 
   // API confirmed businessType values
   String _selectedBusinessType = 'Cafe';
   final List<String> _businessTypes = [
-    'Cafe', 'Restaurant', 'Bakery', 'Catering', 'Food Truck',
-    'Home Kitchen', 'Others'
+    'Cafe',
+    'Restaurant',
+    'Bakery',
+    'Catering',
+    'Food Truck',
+    'Home Kitchen',
+    'Others',
   ];
 
   @override
@@ -48,10 +56,33 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     );
 
     if (success && mounted && navigateAfter) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
-      );
+      final authProvider = context.read<AuthProvider>();
+      final shouldVerify =
+          authProvider.status != AuthStatus.authenticated &&
+          (authProvider.userEmail?.isNotEmpty ?? false);
+
+      if (shouldVerify) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              email: authProvider.userEmail!,
+              onVerified: (verificationContext) {
+                Navigator.pushAndRemoveUntil(
+                  verificationContext,
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (route) => false,
+                );
+              },
+            ),
+          ),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainShell()),
+        );
+      }
     } else if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -91,28 +122,28 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
               children: [
                 // Progress bar
                 Row(
-                  children: List.generate(4, (i) => Expanded(
-                    child: Container(
-                      height: 6,
-                      margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        color: i <= 2
-                            ? const Color(0xFFD35A2A)
-                            : const Color(0xFFE8DEF8),
+                  children: List.generate(
+                    4,
+                    (i) => Expanded(
+                      child: Container(
+                        height: 6,
+                        margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          color: i <= 2
+                              ? const Color(0xFFD35A2A)
+                              : const Color(0xFFE8DEF8),
+                        ),
                       ),
                     ),
-                  )),
+                  ),
                 ),
                 const SizedBox(height: 32),
 
                 const Center(
                   child: Text(
                     'Business details',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -124,8 +155,9 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                   controller: _businessNameController,
                   onChanged: (_) => provider.clearError(),
                   decoration: _inputDecoration('Deliciousness Delight'),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Business name is required' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Business name is required'
+                      : null,
                 ),
                 const SizedBox(height: 24),
 
@@ -136,7 +168,9 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                   controller: _locationController,
                   maxLines: 2,
                   onChanged: (_) => provider.clearError(),
-                  decoration: _inputDecoration('25, Tomash money close, Mushin, Lagos'),
+                  decoration: _inputDecoration(
+                    '25, Tomash money close, Mushin, Lagos',
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -158,13 +192,16 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                             isExpanded: true,
                             decoration: _inputDecoration(''),
                             items: _businessTypes
-                                .map((t) => DropdownMenuItem(
-                                      value: t,
-                                      child: Text(t),
-                                    ))
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (v) {
-                              if (v != null) setState(() => _selectedBusinessType = v);
+                              if (v != null)
+                                setState(() => _selectedBusinessType = v);
                             },
                           ),
                         ],
@@ -225,8 +262,9 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed:
-                            provider.isLoading ? null : () => _submit(navigateAfter: false),
+                        onPressed: provider.isLoading
+                            ? null
+                            : () => _submit(navigateAfter: false),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF3CDD3),
                           foregroundColor: const Color(0xFF5A3A3A),
@@ -245,15 +283,18 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Save',
-                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            : const Text(
+                                'Save',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed:
-                            provider.isLoading ? null : () => _submit(navigateAfter: true),
+                        onPressed: provider.isLoading
+                            ? null
+                            : () => _submit(navigateAfter: true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD35A2A),
                           foregroundColor: Colors.white,
@@ -272,8 +313,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Next',
-                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            : const Text(
+                                'Next',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                       ),
                     ),
                   ],

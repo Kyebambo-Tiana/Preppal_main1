@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:prepal2/data/models/inventory/product_model.dart';
+import 'package:prepal2/presentation/providers/business_provider.dart';
+import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
+import 'package:prepal2/presentation/providers/inventory_provider.dart';
 
 class DailySalesReportScreen extends StatefulWidget {
   const DailySalesReportScreen({super.key});
@@ -10,6 +15,34 @@ class DailySalesReportScreen extends StatefulWidget {
 class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
   final _formKey = GlobalKey<FormState>();
   final List<_SalesEntry> _salesEntries = [_SalesEntry()];
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      if (!mounted) return;
+
+      final businessProvider = context.read<BusinessProvider>();
+      if (!businessProvider.hasBusiness) {
+        await businessProvider.loadBusinesses();
+      }
+
+      if (!mounted) return;
+      final inventory = context.read<InventoryProvider>();
+      if (inventory.allProducts.isEmpty) {
+        await inventory.loadProducts();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final entry in _salesEntries) {
+      entry.dispose();
+    }
+    super.dispose();
+  }
 
   void _addProductRow() {
     setState(() {
@@ -19,26 +52,129 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
 
   void _removeProductRow(int index) {
     setState(() {
-      _salesEntries.removeAt(index);
+      final entry = _salesEntries.removeAt(index);
+      entry.dispose();
     });
   }
 
-  void _handleSave() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sales report saved successfully'),
-        backgroundColor: Color(0xFF4CAF50),
-      ),
-    );
+  int? _tryParseInt(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    return int.tryParse(value);
   }
 
-  void _handleSubmit() {
+  ProductModel? _findProductByName(List<ProductModel> products, String name) {
+    for (final p in products) {
+      if (p.name == name) return p;
+    }
+    return null;
+  }
+
+  String _todayIsoDate() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _submitToBackend({required bool popAfterSuccess}) async {
     if (!_formKey.currentState!.validate()) return;
 
+    final inventoryProducts = context.read<InventoryProvider>().allProducts;
+    if (inventoryProducts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No inventory products found. Add inventory before recording sales.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    final items = <Map<String, dynamic>>[];
+    double totalAmount = 0;
+
+    for (final entry in _salesEntries) {
+      final selectedProductName = entry.productName;
+      if (selectedProductName == null || selectedProductName.isEmpty) {
+        continue;
+      }
+
+      final product = _findProductByName(
+        inventoryProducts,
+        selectedProductName,
+      );
+      if (product == null) continue;
+
+      final quantity = _tryParseInt(entry.quantitySoldController.text) ?? 0;
+      final stockLeft = _tryParseInt(entry.stockLeftController.text) ?? 0;
+      final unitPrice = product.price;
+
+      items.add({
+        'productId': product.id,
+        'productName': product.name,
+        'productType': entry.productType,
+        'productionDate': entry.productionDateController.text.trim().isEmpty
+            ? _todayIsoDate()
+            : entry.productionDateController.text.trim(),
+        'quantitySold': quantity,
+        'unit': entry.unit,
+        'stockLeft': stockLeft,
+        'unitPrice': unitPrice,
+      });
+
+      totalAmount += quantity * unitPrice;
+    }
+
+    if (items.isEmpty) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one valid product sale entry.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final payload = {
+      'date': _todayIsoDate(),
+      'items': items,
+      'totalAmount': totalAmount,
+    };
+
+    final success = await context.read<DailySalesProvider>().addSale(payload);
+    setState(() => _isSubmitting = false);
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            popAfterSuccess
+                ? 'Sales report submitted successfully'
+                : 'Sales report saved successfully',
+          ),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+      );
+
+      if (popAfterSuccess) {
+        Navigator.pop(context);
+      }
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sales report submitted successfully'),
-        backgroundColor: Color(0xFF4CAF50),
+      SnackBar(
+        content: Text(
+          context.read<DailySalesProvider>().errorMessage ??
+              'Failed to submit sales report',
+        ),
+        backgroundColor: Colors.red,
       ),
     );
   }
@@ -56,10 +192,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         ),
         title: const Text(
           'Prepal',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
@@ -119,10 +252,14 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                       itemCount: _salesEntries.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 24),
                       itemBuilder: (context, index) {
+                        final inventoryProducts = context
+                            .watch<InventoryProvider>()
+                            .allProducts;
                         return _buildProductEntry(
                           context,
                           _salesEntries[index],
                           index,
+                          inventoryProducts,
                         );
                       },
                     ),
@@ -132,7 +269,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                     // Add another product button
                     Center(
                       child: ElevatedButton.icon(
-                        onPressed: _addProductRow,
+                        onPressed: _isSubmitting ? null : _addProductRow,
                         icon: const Icon(Icons.add),
                         label: const Text('Add another product'),
                         style: ElevatedButton.styleFrom(
@@ -157,7 +294,10 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _handleSave,
+                            onPressed: _isSubmitting
+                                ? null
+                                : () =>
+                                      _submitToBackend(popAfterSuccess: false),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFF3CDD3),
                               foregroundColor: const Color(0xFF5A3A3A),
@@ -167,19 +307,29 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text(
-                              'Save',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Save',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _handleSubmit,
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _submitToBackend(popAfterSuccess: true),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFD35A2A),
                               foregroundColor: Colors.white,
@@ -189,13 +339,22 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text(
-                              'Submit',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Submit',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -215,7 +374,15 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
     BuildContext context,
     _SalesEntry entry,
     int index,
+    List<ProductModel> inventoryProducts,
   ) {
+    final productNames = inventoryProducts.map((p) => p.name).toList();
+    if (entry.productName != null &&
+        productNames.isNotEmpty &&
+        !productNames.contains(entry.productName)) {
+      entry.productName = productNames.first;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,7 +397,9 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: entry.productName,
+          initialValue: entry.productName,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Select a product' : null,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFE8DEF8),
@@ -247,11 +416,11 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
               borderSide: BorderSide.none,
             ),
           ),
-          items: ['Mega meat pie', 'Cake', 'Bread', 'Pastries']
-              .map((product) => DropdownMenuItem(
-                    value: product,
-                    child: Text(product),
-                  ))
+          items: productNames
+              .map(
+                (product) =>
+                    DropdownMenuItem(value: product, child: Text(product)),
+              )
               .toList(),
           onChanged: (value) {
             if (value != null) {
@@ -278,7 +447,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: entry.productType,
+                    initialValue: entry.productType,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFE8DEF8),
@@ -296,10 +465,10 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                       ),
                     ),
                     items: ['Pastries', 'Cakes', 'Bread', 'Drinks']
-                        .map((type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            ))
+                        .map(
+                          (type) =>
+                              DropdownMenuItem(value: type, child: Text(type)),
+                        )
                         .toList(),
                     onChanged: (value) {
                       if (value != null) {
@@ -327,6 +496,8 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                   TextFormField(
                     controller: entry.productionDateController,
                     readOnly: true,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Required' : null,
                     decoration: InputDecoration(
                       hintText: '14-02-2026',
                       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
@@ -353,8 +524,10 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                         lastDate: DateTime(2030),
                       );
                       if (picked != null) {
-                        setState(() => entry.productionDateController.text =
-                            '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}');
+                        setState(
+                          () => entry.productionDateController.text =
+                              '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
+                        );
                       }
                     },
                   ),
@@ -384,6 +557,13 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                   TextFormField(
                     controller: entry.quantitySoldController,
                     keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final quantity = int.tryParse(v?.trim() ?? '');
+                      if (quantity == null || quantity < 0) {
+                        return 'Enter valid quantity';
+                      }
+                      return null;
+                    },
                     decoration: InputDecoration(
                       hintText: '24',
                       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
@@ -421,7 +601,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: entry.unit,
+                    initialValue: entry.unit,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFE8DEF8),
@@ -439,10 +619,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                       ),
                     ),
                     items: ['PCS', 'KG', 'L', 'BOX']
-                        .map((u) => DropdownMenuItem(
-                              value: u,
-                              child: Text(u),
-                            ))
+                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
                         .toList(),
                     onChanged: (value) {
                       if (value != null) {
@@ -469,7 +646,14 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: entry.stockLeftController,
-          readOnly: true,
+          keyboardType: TextInputType.number,
+          validator: (v) {
+            final stock = int.tryParse(v?.trim() ?? '');
+            if (stock == null || stock < 0) {
+              return 'Enter valid stock';
+            }
+            return null;
+          },
           decoration: InputDecoration(
             hintText: '0 pcs',
             hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
@@ -508,12 +692,19 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
 }
 
 class _SalesEntry {
-  String productName = 'Mega meat pie';
+  String? productName;
   String productType = 'Pastries';
   final TextEditingController productionDateController =
-      TextEditingController(text: '14-02-2026');
+      TextEditingController();
   final TextEditingController quantitySoldController = TextEditingController();
   String unit = 'PCS';
-  final TextEditingController stockLeftController =
-      TextEditingController(text: '0 pcs');
+  final TextEditingController stockLeftController = TextEditingController(
+    text: '0',
+  );
+
+  void dispose() {
+    productionDateController.dispose();
+    quantitySoldController.dispose();
+    stockLeftController.dispose();
+  }
 }

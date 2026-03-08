@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:prepal2/core/network/api_client.dart';
 import 'package:prepal2/core/network/api_constants.dart';
 
@@ -14,10 +15,7 @@ abstract class AuthRemoteDataSource {
 
   /// POST /api/v1/auth/login
   /// Returns { success, accessToken: { token } }
-  Future<String> login({
-    required String email,
-    required String password,
-  });
+  Future<String> login({required String email, required String password});
 
   /// POST /api/v1/auth/verify-email
   /// Body: { token: "OTP_CODE" }
@@ -31,10 +29,7 @@ abstract class AuthRemoteDataSource {
   Future<void> forgotPassword(String email);
 
   /// POST /api/v1/auth/reset-password
-  Future<void> resetPassword({
-    required String email,
-    required String password,
-  });
+  Future<void> resetPassword({required String email, required String password});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -48,14 +43,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String username,
     required String password,
   }) async {
-    final response = await _apiClient.post(
-      ApiConstants.authSignup,
-      body: {
-        'email': email,
-        'username': username,
-        'password': password,
-      },
-    );
+    late final http.Response response;
+    try {
+      response = await _apiClient.post(
+        ApiConstants.authSignup,
+        body: {'email': email, 'username': username, 'password': password},
+      );
+    } catch (e) {
+      final message = e.toString().toLowerCase();
+      if (message.contains('network timeout') ||
+          message.contains('network error')) {
+        throw Exception(
+          'Sign up timed out while waiting for the server response. '
+          'Your internet may be fine - the server could be busy or waking up. '
+          'Please wait 30-60 seconds and try again. If this repeats, try '
+          'logging in because your account may have already been created.',
+        );
+      }
+      rethrow;
+    }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
@@ -66,11 +72,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } else {
       final rawMessage = body['message'] ?? 'Registration failed';
       print('Signup failed. Raw body: $body');
-      
-      // The backend returns a generic "Validation error" when a unique constraint fails
-      if (rawMessage.toString().contains('Validation error')) {
+
+      final normalized = rawMessage.toString().toLowerCase();
+
+      // Handle common unique constraint responses across backend variants.
+      if (normalized.contains('validation error') ||
+          normalized.contains('already exists') ||
+          normalized.contains('already taken') ||
+          normalized.contains('duplicate')) {
         throw Exception(
-            'This Username is already taken! 🛑\n\nThe backend requires every username to be completely unique. Please change your username to something else and try again.');
+          'This account already exists (username or email already used). '
+          'Try logging in, or use a different username/email.',
+        );
       }
       throw Exception(rawMessage);
     }
@@ -83,10 +96,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     final response = await _apiClient.post(
       ApiConstants.authLogin,
-      body: {
-        'email': email,
-        'password': password,
-      },
+      body: {'email': email, 'password': password},
     );
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -156,10 +166,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }) async {
     final response = await _apiClient.post(
       ApiConstants.authResetPassword,
-      body: {
-        'email': email,
-        'password': password,
-      },
+      body: {'email': email, 'password': password},
     );
 
     if (response.statusCode != 200) {

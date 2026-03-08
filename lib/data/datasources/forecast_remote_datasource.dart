@@ -23,7 +23,10 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
 
   String _today() => DateTime.now().toIso8601String().split('T').first;
 
-  Map<String, dynamic> _basePayload(String type, {Map<String, dynamic>? extra}) {
+  Map<String, dynamic> _basePayload(
+    String type, {
+    Map<String, dynamic>? extra,
+  }) {
     return {
       'type': type,
       'businessId': _apiClient.getBusinessId() ?? '',
@@ -41,49 +44,28 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     String type, {
     Map<String, dynamic>? extra,
   }) async {
-    try {
-      final response = await _apiClient.mlPost(
-        ApiConstants.mlPredict,
-        body: _basePayload(type, extra: extra),
-      );
+    final response = await _apiClient.mlPost(
+      ApiConstants.mlPredict,
+      body: _basePayload(type, extra: extra),
+    );
 
-      final decoded = jsonDecode(response.body);
-      if (response.statusCode == 200) {
-        if (decoded is Map<String, dynamic>) {
-          final data = decoded['data'];
-          if (data is Map<String, dynamic>) return data;
-          if (data is List) return {'data': data};
-          return decoded;
-        }
-        return {};
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode != 200) {
+      if (decoded is Map<String, dynamic> && decoded['message'] is String) {
+        throw Exception(decoded['message']);
       }
-
-      if (decoded is Map<String, dynamic>) return decoded;
-      return {};
-    } catch (_) {
-      return {};
+      throw Exception('ML request failed for $type');
     }
-  }
 
-  List<Map<String, dynamic>> _fallback7Days() {
-    return const [
-      {'day': 'Mon', 'actual': 24, 'predicted': 30},
-      {'day': 'Tue', 'actual': 38, 'predicted': 46},
-      {'day': 'Wed', 'actual': 57, 'predicted': 63},
-      {'day': 'Thu', 'actual': 69, 'predicted': 74},
-      {'day': 'Fri', 'actual': 62, 'predicted': 69},
-      {'day': 'Sat', 'actual': 44, 'predicted': 51},
-      {'day': 'Sun', 'actual': 35, 'predicted': 41},
-    ];
-  }
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid ML response format for $type');
+    }
 
-  List<Map<String, dynamic>> _fallbackProducts() {
-    return const [
-      {'name': 'Mega meat pie', 'today': 32, 'tomorrow': 40, 'confidence': 78},
-      {'name': 'Jollof rice', 'today': 8, 'tomorrow': 11, 'confidence': 72},
-      {'name': 'Chicken', 'today': 18, 'tomorrow': 16, 'confidence': 81},
-      {'name': 'Spaghetti', 'today': 6, 'tomorrow': 9, 'confidence': 69},
-    ];
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is List) return {'data': data};
+    return decoded;
   }
 
   @override
@@ -97,7 +79,7 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     if (listData is List && listData.isNotEmpty) {
       return {'days': listData};
     }
-    return {'days': _fallback7Days()};
+    throw Exception('No 7-day forecast data returned by backend');
   }
 
   @override
@@ -110,7 +92,7 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     if (payload is Map<String, dynamic> && payload.isNotEmpty) {
       return [payload];
     }
-    return _fallbackProducts();
+    return const [];
   }
 
   @override
@@ -124,10 +106,7 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
       };
     }
 
-    return {
-      'accuracy': 0.739,
-      'daysAnalyzed': 30,
-    };
+    throw Exception('No forecast accuracy data returned by backend');
   }
 
   @override
@@ -135,14 +114,11 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     final data = await _predict('insights');
     final message = data['message'];
     if (message is String && message.isNotEmpty) {
-      return {
-        'message': message,
-        'type': data['type'] ?? 'info',
-      };
+      return {'message': message, 'type': data['type'] ?? 'info'};
     }
 
-    return {
-      'message': 'Forecast service is warming up. Showing baseline demand values.',
+    return const {
+      'message': 'No AI insight available yet from backend.',
       'type': 'info',
     };
   }

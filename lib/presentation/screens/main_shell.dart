@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
+import 'package:prepal2/presentation/providers/dashboard_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
 import 'package:prepal2/presentation/screens/dashboard/dashboard_screen.dart';
@@ -37,11 +38,20 @@ class _MainShellState extends State<MainShell> {
       if (!mounted) return;
 
       // 2. Load inventory after businessId is available
-      context.read<InventoryProvider>().loadProducts();
-      
+      await context.read<InventoryProvider>().loadProducts();
+
+      if (!mounted) return;
+      final inventoryProducts = context.read<InventoryProvider>().allProducts;
+      context.read<DashboardProvider>().syncInventory(inventoryProducts);
+
       final businessProvider = context.read<BusinessProvider>();
       if (businessProvider.hasBusiness) {
-        context.read<DailySalesProvider>().loadSalesForBusiness(businessProvider.currentBusiness!.id);
+        final businessId = businessProvider.currentBusiness!.id;
+        await context.read<DailySalesProvider>().loadSalesForBusiness(
+          businessId,
+        );
+        if (!mounted) return;
+        await context.read<DashboardProvider>().loadSales(businessId);
       }
     });
   }
@@ -49,10 +59,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),

@@ -2,8 +2,7 @@ class ApiConstants {
   ApiConstants._();
 
   // ── Main Backend ───────────────────────────────────────────
-  static const String baseUrl =
-      'https://preppal-backend-px1d.onrender.com';
+  static const String baseUrl = 'https://preppal-backend-px1d.onrender.com';
 
   // ── ML Service (separate server) ───────────────────────────
   static const String mlBaseUrl = 'https://preppal-2mb4.onrender.com';
@@ -13,7 +12,8 @@ class ApiConstants {
   static const String authSignup = '/api/v1/auth/signup';
   static const String authLogin = '/api/v1/auth/login';
   static const String authVerifyEmail = '/api/v1/auth/verify-email';
-  static const String authResendVerification = '/api/v1/auth/resend-verification';
+  static const String authResendVerification =
+      '/api/v1/auth/resend-verification';
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authResetPassword = '/api/v1/auth/reset-password';
 
@@ -29,7 +29,8 @@ class ApiConstants {
 
   // ── Inventory ──────────────────────────────────────────────
   static const String inventoryCreate = '/api/v1/inventory/create';
-  static String inventoryByBusiness(String id) => '/api/v1/inventory/business/$id';
+  static String inventoryByBusiness(String id) =>
+      '/api/v1/inventory/business/$id';
   static String inventoryById(String id) => '/api/v1/inventory/$id';
   static String inventoryUpdate(String id) => '/api/v1/inventory/$id';
   static String inventoryDelete(String id) => '/api/v1/inventory/$id';
@@ -39,7 +40,8 @@ class ApiConstants {
   // keep URIs consistent with other constants.
   static const String salesAll = '/api/v1/daily-sales/sales';
   static const String salesCreate = '/api/v1/daily-sales/create';
-  static String salesByBusiness(String id) => '/api/v1/daily-sales/business/$id';
+  static String salesByBusiness(String id) =>
+      '/api/v1/daily-sales/business/$id';
   static String saleById(String id) => '/api/v1/daily-sales/$id';
   static String saleUpdate(String id) => '/api/v1/daily-sales/update/$id';
   static String saleDelete(String id) => '/api/v1/daily-sales/$id';
@@ -47,5 +49,11 @@ class ApiConstants {
   // ── Timeouts ───────────────────────────────────────────────
   // Increased from 30 to 120 to accommodate Render free-tier cold starts
   static const int connectionTimeout = 120;
-  static const int receiveTimeout = 120;
+  static const int receiveTimeout = 360;
+
+  // ── Network Resilience ──────────────────────────────────────
+  // Number of retries after the first failed attempt.
+  static const int maxNetworkRetries = 2;
+  // Initial delay before retrying (exponential backoff doubles this).
+  static const int retryBaseDelayMs = 1500;
 }
