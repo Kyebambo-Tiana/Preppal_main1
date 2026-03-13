@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/dashboard_provider.dart';
+import 'package:prepal2/presentation/providers/inventory_provider.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({Key? key}) : super(key: key);
@@ -13,6 +14,20 @@ class _AlertsScreenState extends State<AlertsScreen> {
   String selectedFilter = 'All';
   bool _showCriticalBanner = true;
   bool _highPriorityFirst = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      if (!mounted) return;
+      final inventoryProvider = context.read<InventoryProvider>();
+      await inventoryProvider.loadProducts();
+      if (!mounted) return;
+      context.read<DashboardProvider>().syncInventory(
+        inventoryProvider.allProducts,
+      );
+    });
+  }
 
   int _severityRank(String severity) {
     switch (severity) {
@@ -45,7 +60,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   children: [
                     const Text(
                       'Alert Settings',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile(
@@ -128,7 +146,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
         : alerts.where((alert) => alert.severity == selectedFilter).toList();
 
     if (_highPriorityFirst) {
-      filteredAlerts.sort((a, b) => _severityRank(a.severity).compareTo(_severityRank(b.severity)));
+      filteredAlerts.sort(
+        (a, b) =>
+            _severityRank(a.severity).compareTo(_severityRank(b.severity)),
+      );
     }
 
     final highCount = alerts.where((a) => a.severity == 'High').length;
@@ -332,15 +353,9 @@ class _AlertCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: alertColor.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: alertColor.withOpacity(0.2), width: 1),
         boxShadow: [
-          BoxShadow(
-            color: alertColor.withOpacity(0.1),
-            blurRadius: 4,
-          ),
+          BoxShadow(color: alertColor.withOpacity(0.1), blurRadius: 4),
         ],
       ),
       child: Row(
@@ -354,11 +369,7 @@ class _AlertCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              icon,
-              color: alertColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: alertColor, size: 24),
           ),
           const SizedBox(width: 12),
 
@@ -378,18 +389,12 @@ class _AlertCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   alert.message,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Live inventory alert',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],
             ),

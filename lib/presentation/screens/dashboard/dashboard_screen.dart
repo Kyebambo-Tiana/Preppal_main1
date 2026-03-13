@@ -8,6 +8,7 @@ import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/providers/dashboard_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
+import 'package:prepal2/presentation/providers/forecast_provider.dart';
 import 'package:prepal2/presentation/screens/sales/daily_sales_report_screen.dart';
 import 'package:prepal2/presentation/screens/forecast/demand_forecast_screen.dart';
 import 'package:prepal2/presentation/screens/alerts/alerts_screen.dart';
@@ -39,11 +40,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       final business = context.read<BusinessProvider>().currentBusiness;
       final dashboard = context.read<DashboardProvider>();
+      final forecast = context.read<ForecastProvider>();
       // Sync inventory products for alert/recommendation computations
       dashboard.syncInventory(context.read<InventoryProvider>().allProducts);
       // Fetch today's sales from API if business exists
       if (business != null && business.id.isNotEmpty) {
         await dashboard.loadSales(business.id);
+        await forecast.loadForecastData();
       }
     });
   }
@@ -57,7 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
     setState(() {
-      _notificationsEnabled = prefs.getBool('dashboard_notifications_enabled') ?? true;
+      _notificationsEnabled =
+          prefs.getBool('dashboard_notifications_enabled') ?? true;
       _compactMode = prefs.getBool('dashboard_compact_mode') ?? false;
     });
   }
@@ -79,9 +83,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _profileImageBytes = bytes;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile picture updated')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Profile picture updated')));
   }
 
   Future<void> _persistSetting(String key, bool value) async {
@@ -207,7 +211,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+                leading: const Icon(
+                  Icons.delete_forever_outlined,
+                  color: Colors.red,
+                ),
                 title: const Text('Delete account'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -248,7 +255,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     const Text(
                       'Settings',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SwitchListTile(
@@ -298,6 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final business = context.watch<BusinessProvider>().currentBusiness;
     final inventory = context.watch<InventoryProvider>();
     final dashboard = context.watch<DashboardProvider>();
+    final forecast = context.watch<ForecastProvider>();
 
     // Keep dashboard synced whenever inventory rebuilds
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -358,8 +369,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            'View all (6)',
+                          child: Text(
+                            'View all (${forecast.sevenDayForecast.length})',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFFD35A2A),
@@ -371,7 +382,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -391,9 +405,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             spacing: 12,
                             runSpacing: 4,
                             children: [
-                              const Text('Predicted Sales', overflow: TextOverflow.ellipsis),
-                              _buildLegendItem(label: 'Predicted Sales', color: const Color(0xFFD32F2F)),
-                              _buildLegendItem(label: 'Actual Sales', color: const Color(0xFFFFC107)),
+                              const Text(
+                                'Predicted Sales',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              _buildLegendItem(
+                                label: 'Predicted Sales',
+                                color: const Color(0xFFD32F2F),
+                              ),
+                              _buildLegendItem(
+                                label: 'Actual Sales',
+                                color: const Color(0xFFFFC107),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -404,12 +427,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const DemandForecastScreen(),
+                                    builder: (_) =>
+                                        const DemandForecastScreen(),
                                   ),
                                 );
                               },
                               child: Text(
-                                'View all (6)',
+                                'View all (${forecast.sevenDayForecast.length})',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Colors.red[400],
@@ -419,35 +443,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          SizedBox(
-                            height: 150,
-                            child: CustomPaint(
-                              size: const Size(double.infinity, 150),
-                              painter: _LineChartPainter(),
+                          if (forecast.isLoading)
+                            const SizedBox(
+                              height: 150,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          else if (forecast.sevenDayForecast.isEmpty)
+                            SizedBox(
+                              height: 150,
+                              child: Center(
+                                child: Text(
+                                  forecast.errorMessage ??
+                                      'No forecast data available yet',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else ...[
+                            SizedBox(
+                              height: 150,
+                              child: CustomPaint(
+                                size: const Size(double.infinity, 150),
+                                painter: _LineChartPainter(
+                                  data: forecast.sevenDayForecast,
+                                ),
+                              ),
                             ),
-                          ),
-                          // X-axis labels to match wireframe
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('6am', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                Text('9am', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                Text('12 noon', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                Text('3pm', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                Text('6pm', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                              ],
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: forecast.sevenDayForecast
+                                    .map(
+                                      (point) => Text(
+                                        (point['day'] as String? ?? 'Day')
+                                            .toString(),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 16),
 
-                    //Daily Alert Section 
-                 
+                    //Daily Alert Section
                     _buildSectionHeader(
                       title: 'Daily Alert',
                       actionText: 'View all (${dashboard.dailyAlerts.length})',
@@ -464,39 +520,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (dashboard.dailyAlerts.isEmpty)
                       _buildEmptyCard('✅ No alerts today!')
                     else
-                      ...dashboard.dailyAlerts.map((alert) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _buildAlertCard(
-                              title: alert.productName,
-                              subtitle: alert.message,
-                              severity: alert.severity,
-                            ),
-                          )),
+                      ...dashboard.dailyAlerts.map(
+                        (alert) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildAlertCard(
+                            title: alert.productName,
+                            subtitle: alert.message,
+                            severity: alert.severity,
+                          ),
+                        ),
+                      ),
 
                     const SizedBox(height: 16),
 
                     // ── Smart Recommendation Section
-                   
                     _buildSectionHeader(
                       title: 'Smart Recommendation',
-                      actionText: 'View all (${dashboard.smartRecommendations.length})',
+                      actionText:
+                          'View all (${dashboard.smartRecommendations.length})',
                     ),
                     const SizedBox(height: 8),
                     if (dashboard.smartRecommendations.isEmpty)
                       _buildEmptyCard('✅ All stock levels look good!')
                     else
-                      ...dashboard.smartRecommendations.map((rec) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _buildRecommendationCard(
-                              title: rec.productName,
-                              subtitle: rec.message,
-                            ),
-                          )),
+                      ...dashboard.smartRecommendations.map(
+                        (rec) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildRecommendationCard(
+                            title: rec.productName,
+                            subtitle: rec.message,
+                          ),
+                        ),
+                      ),
 
                     const SizedBox(height: 16),
 
                     //Today's Sales Summary
-    
                     _buildSalesSummaryCard(dashboard),
 
                     const SizedBox(height: 24),
@@ -512,7 +571,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const DailySalesReportScreen(),
+                                  builder: (_) =>
+                                      const DailySalesReportScreen(),
                                 ),
                               );
                             },
@@ -527,7 +587,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const DailySalesReportScreen(),
+                                  builder: (_) =>
+                                      const DailySalesReportScreen(),
                                 ),
                               );
                             },
@@ -546,8 +607,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
-
   Widget _buildSectionHeader({
     required String title,
     required String actionText,
@@ -556,22 +615,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         GestureDetector(
           onTap: onTap,
-          child: Text(actionText,
-              style: TextStyle(fontSize: 10, color: Colors.red[400], fontWeight: FontWeight.bold)),
+          child: Text(
+            actionText,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.red[400],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildLegendItem({required String label, required Color color}) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      CircleAvatar(radius: 5, backgroundColor: color),
-      const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 10, color: Colors.black87)),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(radius: 5, backgroundColor: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.black87),
+        ),
+      ],
+    );
   }
 
   // UPDATED: now accepts severity string instead of bool
@@ -582,9 +656,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     final isHigh = severity == 'High';
     final isMedium = severity == 'Medium';
-    final bg = isHigh ? Colors.red[50]! : isMedium ? Colors.orange[50]! : Colors.yellow[50]!;
-    final border = isHigh ? Colors.red[100]! : isMedium ? Colors.orange[100]! : Colors.yellow[100]!;
-    final color = isHigh ? Colors.red : isMedium ? Colors.orange : Colors.amber;
+    final bg = isHigh
+        ? Colors.red[50]!
+        : isMedium
+        ? Colors.orange[50]!
+        : Colors.yellow[50]!;
+    final border = isHigh
+        ? Colors.red[100]!
+        : isMedium
+        ? Colors.orange[100]!
+        : Colors.yellow[100]!;
+    final color = isHigh
+        ? Colors.red
+        : isMedium
+        ? Colors.orange
+        : Colors.amber;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -601,8 +687,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
@@ -612,15 +707,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isHigh ? Colors.red[100] : Colors.orange[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(severity,
-                style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+            child: Text(
+              severity,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecommendationCard({required String title, required String subtitle}) {
+  Widget _buildRecommendationCard({
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -636,8 +740,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
@@ -649,8 +762,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // NEW: real sales card
   Widget _buildSalesSummaryCard(DashboardProvider dashboard) {
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const DailySalesReportScreen())),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const DailySalesReportScreen()),
+      ),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -658,36 +773,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Today Sales',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const Text(
+              'Today Sales',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
             const SizedBox(height: 8),
             dashboard.isLoadingSales
-                ? const SizedBox(height: 28, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Text(
                     // REAL value from API
                     dashboard.todayRevenueFormatted,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
             const SizedBox(height: 8),
-            Row(children: [
-              Icon(
-                dashboard.revenueIsUp ? Icons.arrow_upward : Icons.arrow_downward,
-                color: dashboard.revenueIsUp ? Colors.green : Colors.red,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              // ✅ REAL change % vs yesterday
-              Text(dashboard.revenueChangeLabel,
+            Row(
+              children: [
+                Icon(
+                  dashboard.revenueIsUp
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward,
+                  color: dashboard.revenueIsUp ? Colors.green : Colors.red,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                // ✅ REAL change % vs yesterday
+                Text(
+                  dashboard.revenueChangeLabel,
                   style: TextStyle(
-                      fontSize: 12,
-                      color: dashboard.revenueIsUp ? Colors.green : Colors.red)),
-            ]),
+                    fontSize: 12,
+                    color: dashboard.revenueIsUp ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -698,14 +837,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Text(message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.grey, fontSize: 13)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.grey, fontSize: 13),
+      ),
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required String title, VoidCallback? onTap}) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String title,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -720,7 +868,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(icon, color: Colors.black87, size: 20),
             const SizedBox(width: 8),
-            Text(title, textAlign: TextAlign.start, style: const TextStyle(fontSize: 12)),
+            Text(
+              title,
+              textAlign: TextAlign.start,
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -734,9 +886,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _DashboardHeader extends StatelessWidget {
   final String businessName;
   final String wasteReduction; // ✅ was hardcoded '35%'
-  final int highRisk;          // ✅ was hardcoded '1'
-  final int mediumRisk;        // ✅ was hardcoded '0'
-  final int lowRisk;           // ✅ was hardcoded '3'
+  final int highRisk; // ✅ was hardcoded '1'
+  final int mediumRisk; // ✅ was hardcoded '0'
+  final int lowRisk; // ✅ was hardcoded '3'
   final Uint8List? profileImageBytes;
   final VoidCallback onMenuTap;
   final VoidCallback onProfileTap;
@@ -786,85 +938,116 @@ class _DashboardHeader extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const Text('Welcome',
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Welcome',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     // ✅ REAL business name from BusinessProvider
-                    Text(businessName,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                        textAlign: TextAlign.center),
+                    Text(
+                      businessName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 4),
-                    Text(_formattedDate(),
-                        style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text(
+                      _formattedDate(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                GestureDetector(
-                  onTap: onProfileTap,
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white,
-                    backgroundImage: profileImageBytes != null
-                        ? MemoryImage(profileImageBytes!)
-                        : null,
-                    child: profileImageBytes == null
-                        ? const Icon(Icons.person, color: Color(0xFFD32F2F))
-                        : null,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: onProfileTap,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white,
+                      backgroundImage: profileImageBytes != null
+                          ? MemoryImage(profileImageBytes!)
+                          : null,
+                      child: profileImageBytes == null
+                          ? const Icon(Icons.person, color: Color(0xFFD32F2F))
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  onSelected: (value) {
-                    if (value == 'settings') {
-                      onSettingsTap();
-                    }
-                    if (value == 'business_details') {
-                      onBusinessDetailsTap();
-                    }
-                    if (value == 'delete_account') {
-                      onDeleteAccountTap();
-                    }
-                    if (value == 'logout') {
-                      onLogoutTap();
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => const [
-                    PopupMenuItem<String>(
-                      value: 'settings',
-                      child: Row(children: [
-                        Icon(Icons.tune),
-                        SizedBox(width: 8),
-                        Text('Settings'),
-                      ]),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'business_details',
-                      child: Row(children: [
-                        Icon(Icons.business_outlined),
-                        SizedBox(width: 8),
-                        Text('Business details'),
-                      ]),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'logout',
-                      child: Row(children: [
-                        Icon(Icons.logout, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Logout'),
-                      ]),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'delete_account',
-                      child: Row(children: [
-                        Icon(Icons.delete_forever_outlined, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Delete account'),
-                      ]),
-                    ),
-                  ],
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.settings, color: Colors.white),
+                    onSelected: (value) {
+                      if (value == 'settings') {
+                        onSettingsTap();
+                      }
+                      if (value == 'business_details') {
+                        onBusinessDetailsTap();
+                      }
+                      if (value == 'delete_account') {
+                        onDeleteAccountTap();
+                      }
+                      if (value == 'logout') {
+                        onLogoutTap();
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => const [
+                      PopupMenuItem<String>(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.tune),
+                            SizedBox(width: 8),
+                            Text('Settings'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'business_details',
+                        child: Row(
+                          children: [
+                            Icon(Icons.business_outlined),
+                            SizedBox(width: 8),
+                            Text('Business details'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Logout'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'delete_account',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_forever_outlined,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Delete account'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
 
@@ -883,29 +1066,55 @@ class _DashboardHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        const Icon(Icons.trending_down, color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Waste Reduction',
-                            style: const TextStyle(color: Colors.white),
-                            overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.trending_down,
+                            color: Colors.white,
+                            size: 16,
                           ),
-                        ),
-                      ]),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Waste Reduction',
+                              style: const TextStyle(color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 8),
                       // ✅ REAL VALUE — was hardcoded '35%'
-                      Text(wasteReduction,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                      const Text('from last week', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      Text(
+                        wasteReduction,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        'from last week',
+                        style: TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
                       const SizedBox(height: 4),
-                      const Row(children: [
-                        Icon(Icons.info_outline, color: Colors.white70, size: 10),
-                        SizedBox(width: 2),
-                        Text('more info', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                      ]),
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.white70,
+                            size: 10,
+                          ),
+                          SizedBox(width: 2),
+                          Text(
+                            'more info',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -922,17 +1131,23 @@ class _DashboardHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        const Icon(Icons.warning_amber, color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        const Expanded(
-                          child: Text(
-                            'Waste Risk levels',
-                            style: TextStyle(color: Colors.white),
-                            overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber,
+                            color: Colors.white,
+                            size: 16,
                           ),
-                        ),
-                      ]),
+                          const SizedBox(width: 4),
+                          const Expanded(
+                            child: Text(
+                              'Waste Risk levels',
+                              style: TextStyle(color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -940,18 +1155,48 @@ class _DashboardHeader extends StatelessWidget {
                         alignment: WrapAlignment.spaceBetween,
                         children: [
                           // ✅ REAL VALUES — were hardcoded '1', '0', '3'
-                          _buildRiskPill('High', '$highRisk', Colors.red[100]!, Colors.red),
-                          _buildRiskPill('Medium', '$mediumRisk', Colors.orange[100]!, Colors.orange),
-                          _buildRiskPill('Low', '$lowRisk', Colors.green[100]!, Colors.green),
+                          _buildRiskPill(
+                            'High',
+                            '$highRisk',
+                            Colors.red[100]!,
+                            Colors.red,
+                          ),
+                          _buildRiskPill(
+                            'Medium',
+                            '$mediumRisk',
+                            Colors.orange[100]!,
+                            Colors.orange,
+                          ),
+                          _buildRiskPill(
+                            'Low',
+                            '$lowRisk',
+                            Colors.green[100]!,
+                            Colors.green,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      const Text('for this week', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                      const Row(children: [
-                        Icon(Icons.info_outline, color: Colors.white70, size: 10),
-                        SizedBox(width: 2),
-                        Text('more info', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                      ]),
+                      const Text(
+                        'for this week',
+                        style: TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.white70,
+                            size: 10,
+                          ),
+                          SizedBox(width: 2),
+                          Text(
+                            'more info',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -963,21 +1208,57 @@ class _DashboardHeader extends StatelessWidget {
     );
   }
 
-  static Widget _buildRiskPill(String label, String value, Color bgColor, Color textColor) {
+  static Widget _buildRiskPill(
+    String label,
+    String value,
+    Color bgColor,
+    Color textColor,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(4)),
-      child: Column(children: [
-        Text(label, style: TextStyle(color: textColor, fontSize: 9, fontWeight: FontWeight.bold)),
-        Text(value, style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.bold)),
-      ]),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _formattedDate() {
     final now = DateTime.now();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}, ${now.year}';
   }
@@ -991,16 +1272,30 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      _StatCard(label: 'Total Products', value: '${inventory.totalProducts}',
-          icon: Icons.inventory_2, color: const Color(0xFFD32F2F)),
-      const SizedBox(width: 12),
-      _StatCard(label: 'Low Stock', value: '${inventory.lowStockProducts.length}',
-          icon: Icons.warning_amber, color: Colors.orange),
-      const SizedBox(width: 12),
-      _StatCard(label: 'Expiring Soon', value: '${inventory.expiringSoonProducts.length}',
-          icon: Icons.schedule, color: Colors.red),
-    ]);
+    return Row(
+      children: [
+        _StatCard(
+          label: 'Total Products',
+          value: '${inventory.totalProducts}',
+          icon: Icons.inventory_2,
+          color: const Color(0xFFD32F2F),
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          label: 'Low Stock',
+          value: '${inventory.lowStockProducts.length}',
+          icon: Icons.warning_amber,
+          color: Colors.orange,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          label: 'Expiring Soon',
+          value: '${inventory.expiringSoonProducts.length}',
+          icon: Icons.schedule,
+          color: Colors.red,
+        ),
+      ],
+    );
   }
 }
 
@@ -1009,7 +1304,12 @@ class _StatCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
-  const _StatCard({required this.label, required this.value, required this.icon, required this.color});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1019,14 +1319,33 @@ class _StatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1035,52 +1354,97 @@ class _StatCard extends StatelessWidget {
 // ── Chart Painter (unchanged) ─────────────────────────────────
 
 class _LineChartPainter extends CustomPainter {
+  final List<Map<String, dynamic>> data;
+
+  const _LineChartPainter({required this.data});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paintLine1 = Paint()..color = const Color(0xFFD32F2F)..strokeWidth = 2..style = PaintingStyle.stroke;
-    final paintLine2 = Paint()..color = const Color(0xFFFFC107)..strokeWidth = 2..style = PaintingStyle.stroke;
-    final paintDots1 = Paint()..color = const Color(0xFFD32F2F)..style = PaintingStyle.fill;
-    final paintDots2 = Paint()..color = const Color(0xFFFFC107)..style = PaintingStyle.fill;
+    if (data.length < 2) return;
 
-    final path1 = Path();
-    final path2 = Path();
+    final paintLine1 = Paint()
+      ..color = const Color(0xFFD32F2F)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final paintLine2 = Paint()
+      ..color = const Color(0xFFFFC107)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final paintDots1 = Paint()
+      ..color = const Color(0xFFD32F2F)
+      ..style = PaintingStyle.fill;
+    final paintDots2 = Paint()
+      ..color = const Color(0xFFFFC107)
+      ..style = PaintingStyle.fill;
 
-    final points1 = [
-      Offset(0, size.height * 0.8),
-      Offset(size.width * 0.25, size.height * 0.3),
-      Offset(size.width * 0.5, size.height * 0.1),
-      Offset(size.width * 0.75, size.height * 0.6),
-      Offset(size.width, size.height * 0.85),
-    ];
-    final points2 = [
-      Offset(0, size.height * 0.95),
-      Offset(size.width * 0.25, size.height * 0.5),
-      Offset(size.width * 0.5, size.height * 0.3),
-      Offset(size.width * 0.75, size.height * 0.8),
-      Offset(size.width, size.height * 0.9),
-    ];
-
-    path1.moveTo(points1[0].dx, points1[0].dy);
-    for (int i = 1; i < points1.length; i++) {
-      final p0 = points1[i - 1]; final p1 = points1[i];
-      path1.cubicTo(p0.dx + (p1.dx - p0.dx) / 2, p0.dy, p0.dx + (p1.dx - p0.dx) / 2, p1.dy, p1.dx, p1.dy);
-    }
-    path2.moveTo(points2[0].dx, points2[0].dy);
-    for (int i = 1; i < points2.length; i++) {
-      final p0 = points2[i - 1]; final p1 = points2[i];
-      path2.cubicTo(p0.dx + (p1.dx - p0.dx) / 2, p0.dy, p0.dx + (p1.dx - p0.dx) / 2, p1.dy, p1.dx, p1.dy);
+    double maxY = 1;
+    for (final point in data) {
+      final actual = _asDouble(point['actual']);
+      final predicted = _asDouble(point['predicted']);
+      if (actual > maxY) maxY = actual;
+      if (predicted > maxY) maxY = predicted;
     }
 
-    canvas.drawPath(path1, paintLine1);
-    canvas.drawPath(path2, paintLine2);
-    for (var p in points1) { if (p.dx > 0) canvas.drawCircle(p, 3, paintDots1); }
-    for (var p in points2) { if (p.dx > 0) canvas.drawCircle(p, 3, paintDots2); }
+    final count = data.length;
+    final dx = count > 1 ? size.width / (count - 1) : size.width;
+    final usableHeight = size.height * 0.9;
+    final topPadding = size.height * 0.05;
 
-    final axisPaint = Paint()..color = Colors.black..strokeWidth = 1;
+    final actualPoints = <Offset>[];
+    final predictedPoints = <Offset>[];
+
+    for (int i = 0; i < count; i++) {
+      final point = data[i];
+      final actual = _asDouble(point['actual']);
+      final predicted = _asDouble(point['predicted']);
+
+      final x = dx * i;
+      final actualY = topPadding + (usableHeight * (1 - (actual / maxY)));
+      final predictedY = topPadding + (usableHeight * (1 - (predicted / maxY)));
+
+      actualPoints.add(Offset(x, actualY));
+      predictedPoints.add(Offset(x, predictedY));
+    }
+
+    final actualPath = Path()
+      ..moveTo(actualPoints.first.dx, actualPoints.first.dy);
+    final predictedPath = Path()
+      ..moveTo(predictedPoints.first.dx, predictedPoints.first.dy);
+
+    for (int i = 1; i < actualPoints.length; i++) {
+      actualPath.lineTo(actualPoints[i].dx, actualPoints[i].dy);
+      predictedPath.lineTo(predictedPoints[i].dx, predictedPoints[i].dy);
+    }
+
+    canvas.drawPath(actualPath, paintLine1);
+    canvas.drawPath(predictedPath, paintLine2);
+
+    for (final p in actualPoints) {
+      canvas.drawCircle(p, 3, paintDots1);
+    }
+    for (final p in predictedPoints) {
+      canvas.drawCircle(p, 3, paintDots2);
+    }
+
+    final axisPaint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 1;
     canvas.drawLine(const Offset(0, 0), Offset(0, size.height), axisPaint);
-    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), axisPaint);
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      axisPaint,
+    );
+  }
+
+  double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.data != data;
+  }
 }

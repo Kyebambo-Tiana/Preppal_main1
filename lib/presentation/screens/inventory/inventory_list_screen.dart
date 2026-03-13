@@ -33,8 +33,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   // ── Stock classification helpers ───────────────────────────
   double _optimal(ProductModel p) => (p.lowStockThreshold ?? 10) * 2;
 
-  bool _isOverStock(ProductModel p) =>
-      p.quantityAvailable > _optimal(p);
+  bool _isOverStock(ProductModel p) => p.quantityAvailable > _optimal(p);
 
   bool _isOptimalStock(ProductModel p) =>
       p.quantityAvailable > (p.lowStockThreshold ?? 10) &&
@@ -98,15 +97,20 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
           List<ProductModel> filtered = List.from(inv.allProducts);
           if (_searchQuery.isNotEmpty) {
             filtered = filtered
-                .where((p) =>
-                    p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                    p.category.name
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase()))
+                .where(
+                  (p) =>
+                      p.name.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ) ||
+                      p.category.name.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ),
+                )
                 .toList();
           }
 
-          final lowCount = inv.allProducts.where(_isLow).length +
+          final lowCount =
+              inv.allProducts.where(_isLow).length +
               inv.allProducts.where(_isCritical).length;
           final overCount = inv.allProducts.where(_isOverStock).length;
           final optimalCount = inv.allProducts.where(_isOptimalStock).length;
@@ -135,24 +139,33 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                           children: [
                             GestureDetector(
                               onTap: () => Navigator.maybePop(context),
-                              child: const Icon(Icons.arrow_back_ios,
-                                  color: Colors.white, size: 20),
+                              child: const Icon(
+                                Icons.arrow_back_ios,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Inventory Management',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold)),
+                                  Text(
+                                    'Inventory Management',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   SizedBox(height: 2),
-                                  Text('Real-time stock tracking',
-                                      style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12)),
+                                  Text(
+                                    'Real-time stock tracking',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -168,12 +181,17 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
                                 padding: const EdgeInsets.all(6),
-                                child: const Icon(Icons.add,
-                                    color: Colors.white, size: 20),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                               ),
                             ),
                           ],
@@ -192,12 +210,17 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                             decoration: const InputDecoration(
                               hintText: 'Search inventory',
                               hintStyle: TextStyle(
-                                  color: Color(0xFFBDBDBD), fontSize: 14),
-                              prefixIcon:
-                                  Icon(Icons.search, color: Color(0xFF9E9E9E)),
+                                color: Color(0xFFBDBDBD),
+                                fontSize: 14,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Color(0xFF9E9E9E),
+                              ),
                               border: InputBorder.none,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
                             ),
                           ),
                         ),
@@ -212,99 +235,117 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                 child: inv.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : inv.errorMessage != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                inv.errorMessage!,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => inv.loadProducts(),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => inv.loadProducts(),
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: [
+                            const SizedBox(height: 16),
+                            // ── Stat pills ─────────────
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  const Icon(Icons.error_outline,
-                                      size: 48, color: Colors.grey),
-                                  const SizedBox(height: 12),
-                                  Text(inv.errorMessage!,
-                                      textAlign: TextAlign.center),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () => inv.loadProducts(),
-                                    child: const Text('Retry'),
+                                  _StatPill(
+                                    count: inv.totalProducts,
+                                    label: 'Total',
+                                    color: const Color(0xFF424242),
+                                  ),
+                                  _StatPill(
+                                    count: lowCount,
+                                    label: 'Low',
+                                    color: const Color(0xFFFFA726),
+                                  ),
+                                  _StatPill(
+                                    count: overCount,
+                                    label: 'Over',
+                                    color: const Color(0xFFEF5350),
+                                  ),
+                                  _StatPill(
+                                    count: optimalCount,
+                                    label: 'Optimal',
+                                    color: const Color(0xFF66BB6A),
                                   ),
                                 ],
                               ),
                             ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: () => inv.loadProducts(),
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              children: [
-                                const SizedBox(height: 16),
-                                // ── Stat pills ─────────────
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      _StatPill(
-                                          count: inv.totalProducts,
-                                          label: 'Total',
-                                          color: const Color(0xFF424242)),
-                                      _StatPill(
-                                          count: lowCount,
-                                          label: 'Low',
-                                          color: const Color(0xFFFFA726)),
-                                      _StatPill(
-                                          count: overCount,
-                                          label: 'Over',
-                                          color: const Color(0xFFEF5350)),
-                                      _StatPill(
-                                          count: optimalCount,
-                                          label: 'Optimal',
-                                          color: const Color(0xFF66BB6A)),
-                                    ],
+                            const SizedBox(height: 16),
+
+                            // ── Product cards ──────────
+                            if (filtered.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.all(32),
+                                child: Center(
+                                  child: Text(
+                                    'No products found.',
+                                    style: TextStyle(color: Colors.grey),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                              )
+                            else
+                              ...filtered.map(
+                                (p) => _ProductCard(
+                                  product: p,
+                                  optimal: _optimal(p),
+                                  statusLabel: _statusLabel(p),
+                                  statusColor: _statusColor(p),
+                                  onTap: () async {
+                                    final changed = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ProductDetailScreen(product: p),
+                                      ),
+                                    );
 
-                                // ── Product cards ──────────
-                                if (filtered.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.all(32),
-                                    child: Center(
-                                      child: Text('No products found.',
-                                          style:
-                                              TextStyle(color: Colors.grey)),
-                                    ),
-                                  )
-                                else
-                                  ...filtered.map((p) => _ProductCard(
-                                        product: p,
-                                        optimal: _optimal(p),
-                                        statusLabel: _statusLabel(p),
-                                        statusColor: _statusColor(p),
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ProductDetailScreen(
-                                                      product: p),
-                                            ),
-                                          );
-                                        },
-                                      )),
+                                    if (changed == true && mounted) {
+                                      await context
+                                          .read<InventoryProvider>()
+                                          .loadProducts();
+                                    }
+                                  },
+                                ),
+                              ),
 
-                                // ── Smart Insights ─────────
-                                if (insights.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  _SmartInsightsSection(insights: insights),
-                                ],
+                            // ── Smart Insights ─────────
+                            if (insights.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _SmartInsightsSection(insights: insights),
+                            ],
 
-                                const SizedBox(height: 24),
-                              ],
-                            ),
-                          ),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
               ),
             ],
           );
@@ -337,12 +378,16 @@ class _StatPill extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text('$count',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label,
-              style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
         ],
       ),
     );
@@ -418,26 +463,35 @@ class _ProductCard extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(product.name,
-                                style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87)),
+                            child: Text(
+                              product.name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: statusColor.withValues(alpha: 0.4)),
+                                color: statusColor.withValues(alpha: 0.4),
+                              ),
                             ),
-                            child: Text(statusLabel,
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: statusColor)),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -446,8 +500,7 @@ class _ProductCard extends StatelessWidget {
                       Text(
                         product.category.name[0].toUpperCase() +
                             product.category.name.substring(1),
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                       const SizedBox(height: 6),
                       // Stock / Optimal row
@@ -456,13 +509,17 @@ class _ProductCard extends StatelessWidget {
                           Text(
                             'Stock: ${product.quantityAvailable.toStringAsFixed(0)}$unitStr',
                             style: const TextStyle(
-                                fontSize: 12, color: Colors.black54),
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
                           ),
                           const Spacer(),
                           Text(
                             'Optimal: ${optimal.toStringAsFixed(0)}$unitStr',
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey[400]),
+                              fontSize: 12,
+                              color: Colors.grey[400],
+                            ),
                           ),
                         ],
                       ),
@@ -484,8 +541,10 @@ class _ProductCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             // Production date
-            Text('Production date: $prodDate',
-                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+            Text(
+              'Production date: $prodDate',
+              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+            ),
           ],
         ),
       ),
@@ -524,11 +583,14 @@ class _SmartInsightsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Smart Insights',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
+          const Text(
+            'Smart Insights',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
           const SizedBox(height: 12),
           ...insights.take(3).map((item) {
             final color = _labelColor(item['label'] ?? '');
@@ -547,27 +609,40 @@ class _SmartInsightsSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item['message'] ?? '',
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500)),
-                        Text(item['product'] ?? '',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey[500])),
+                        Text(
+                          item['message'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          item['product'] ?? '',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(item['label'] ?? '',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: color)),
+                    child: Text(
+                      item['label'] ?? '',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
                   ),
                 ],
               ),

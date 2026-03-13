@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
-import 'package:prepal2/presentation/screens/auth/verification_screen.dart';
+import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -31,17 +31,6 @@ class _SignupScreenState extends State<SignupScreen> {
       _passwordController.text = 'Test@1234';
       _confirmPasswordController.text = 'Test@1234';
     });
-  }
-
-  void _openVerificationDirectly() {
-    final email = _emailController.text.trim().isEmpty
-        ? 'tester@example.com'
-        : _emailController.text.trim();
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => VerificationScreen(email: email)),
-    );
   }
 
   @override
@@ -75,27 +64,11 @@ class _SignupScreenState extends State<SignupScreen> {
       password: _passwordController.text,
     );
 
-    final shouldProceed = success || authProvider.shouldProceedToVerification;
-
-    if (shouldProceed && mounted) {
+    if (success && mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) =>
-              VerificationScreen(email: _emailController.text.trim()),
-        ),
+        MaterialPageRoute(builder: (_) => const BusinessDetailsScreen()),
       );
-
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Account may already exist. Verify your email to continue.',
-            ),
-            backgroundColor: Color(0xFFD35A2A),
-          ),
-        );
-      }
     }
   }
 
@@ -482,10 +455,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               OutlinedButton(
                                 onPressed: _fillTestSignupData,
                                 child: const Text('Autofill test data'),
-                              ),
-                              OutlinedButton(
-                                onPressed: _openVerificationDirectly,
-                                child: const Text('Open verification now'),
                               ),
                             ],
                           ),

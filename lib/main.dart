@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prepal2/core/di/service_locator.dart';
 
 // Data layer
-import 'package:prepal2/data/datasources/auth/auth_remote_datasource.dart';
 import 'package:prepal2/data/repositories/auth_repository_impl.dart';
 import 'package:prepal2/data/repositories/inventory_repository_impl.dart';
 
@@ -58,30 +57,28 @@ void main() async {
             authRepository: authRepository,
           ),
         ),
-        ChangeNotifierProvider(
-          create: (_) => BusinessProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => BusinessProvider()),
         // ✅ NEW — DashboardProvider added here
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(
           create: (_) => InventoryProvider(
-            getAllProducts:
-                GetAllProductsUseCase(repository: inventoryRepository),
+            getAllProducts: GetAllProductsUseCase(
+              repository: inventoryRepository,
+            ),
             addProduct: AddProductUseCase(repository: inventoryRepository),
-            updateProduct:
-                UpdateProductUseCase(repository: inventoryRepository),
-            deleteProduct:
-                DeleteProductUseCase(repository: inventoryRepository),
+            updateProduct: UpdateProductUseCase(
+              repository: inventoryRepository,
+            ),
+            deleteProduct: DeleteProductUseCase(
+              repository: inventoryRepository,
+            ),
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => ForecastProvider(
-            serviceLocator.forecastRemoteDataSource,
-          ),
+          create: (_) =>
+              ForecastProvider(serviceLocator.forecastRemoteDataSource),
         ),
-        ChangeNotifierProvider(
-          create: (_) => DailySalesProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => DailySalesProvider()),
       ],
       child: const PrepPalApp(),
     ),
@@ -114,7 +111,10 @@ class PrepPalApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(

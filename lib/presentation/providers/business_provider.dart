@@ -87,14 +87,34 @@ class BusinessProvider extends ChangeNotifier {
 
     try {
       final ds = serviceLocator.businessRemoteDataSource;
-      final result = await ds.createBusiness(
-        businessName: businessName,
-        businessType: businessType,
-        location: location,
-      );
+      final hasExistingBusiness =
+          _currentBusiness != null && _currentBusiness!.id.isNotEmpty;
+
+      final result = hasExistingBusiness
+          ? await ds.updateBusiness(
+              id: _currentBusiness!.id,
+              updates: {
+                'businessName': businessName,
+                'businessType': businessType,
+                'location': location,
+              },
+            )
+          : await ds.createBusiness(
+              businessName: businessName,
+              businessType: businessType,
+              location: location,
+            );
 
       _currentBusiness = BusinessModel.fromMap(result);
-      _businesses.insert(0, _currentBusiness!);
+      final existingIndex = _businesses.indexWhere(
+        (b) => b.id == _currentBusiness!.id,
+      );
+      if (existingIndex == -1) {
+        _businesses.insert(0, _currentBusiness!);
+      } else {
+        _businesses[existingIndex] = _currentBusiness!;
+      }
+
       _status = BusinessStatus.success;
       notifyListeners();
       return true;
@@ -119,6 +139,5 @@ class BusinessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _clean(Object e) =>
-      e.toString().replaceAll('Exception: ', '');
+  String _clean(Object e) => e.toString().replaceAll('Exception: ', '');
 }

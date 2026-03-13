@@ -37,6 +37,70 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   AuthRemoteDataSourceImpl(this._apiClient);
 
+  Map<String, dynamic> _tryParseJson(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  String _extractMessage(Map<String, dynamic> body, String fallback) {
+    final direct = body['message'];
+    if (direct is String && direct.trim().isNotEmpty) {
+      return direct;
+    }
+
+    final error = body['error'];
+    if (error is String && error.trim().isNotEmpty) {
+      return error;
+    }
+
+    final errors = body['errors'];
+    if (errors is List && errors.isNotEmpty) {
+      final first = errors.first;
+      if (first is String && first.trim().isNotEmpty) return first;
+      if (first is Map<String, dynamic>) {
+        final firstMessage = first['message'];
+        if (firstMessage is String && firstMessage.trim().isNotEmpty) {
+          return firstMessage;
+        }
+      }
+    }
+
+    return fallback;
+  }
+
+  String? _extractToken(Map<String, dynamic> body) {
+    final directToken = body['token'];
+    if (directToken is String && directToken.isNotEmpty) return directToken;
+
+    final accessToken = body['accessToken'];
+    if (accessToken is String && accessToken.isNotEmpty) return accessToken;
+    if (accessToken is Map<String, dynamic>) {
+      final nested = accessToken['token'];
+      if (nested is String && nested.isNotEmpty) return nested;
+    }
+
+    final data = body['data'];
+    if (data is Map<String, dynamic>) {
+      final dataToken = data['token'];
+      if (dataToken is String && dataToken.isNotEmpty) return dataToken;
+      final dataAccessToken = data['accessToken'];
+      if (dataAccessToken is String && dataAccessToken.isNotEmpty) {
+        return dataAccessToken;
+      }
+      if (dataAccessToken is Map<String, dynamic>) {
+        final nested = dataAccessToken['token'];
+        if (nested is String && nested.isNotEmpty) return nested;
+      }
+    }
+
+    return null;
+  }
+
   @override
   Future<Map<String, dynamic>> register({
     required String email,
@@ -63,14 +127,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       rethrow;
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final body = _tryParseJson(response.body);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       // API wraps user data inside "data" key
       // { success: true, data: { id, email, username, role, ... } }
-      return body['data'] as Map<String, dynamic>;
+      final data = body['data'];
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+      throw Exception(
+        'Registration succeeded but user data was missing in response.',
+      );
     } else {
-      final rawMessage = body['message'] ?? 'Registration failed';
+      final rawMessage = _extractMessage(body, 'Registration failed');
       print('Signup failed. Raw body: $body');
 
       final normalized = rawMessage.toString().toLowerCase();
@@ -99,18 +169,23 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       body: {'email': email, 'password': password},
     );
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final body = _tryParseJson(response.body);
 
     if (response.statusCode == 200) {
-      // API returns: { success: true, accessToken: { token: "eyJ..." } }
-      final token = body['accessToken']['token'] as String;
+      // Accept multiple token response shapes across backend versions.
+      final token = _extractToken(body);
+      if (token == null) {
+        throw Exception(
+          'Login succeeded but no auth token was returned by the server.',
+        );
+      }
 
       // Save token into ApiClient for all future requests
       await _apiClient.setAuthToken(token);
 
       return token;
     } else {
-      final message = body['message'] ?? 'Login failed';
+      final message = _extractMessage(body, 'Login failed');
       throw Exception(message);
     }
   }
@@ -128,8 +203,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
 
     if (response.statusCode != 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['message'] ?? 'Email verification failed');
+      final body = _tryParseJson(response.body);
+      throw Exception(_extractMessage(body, 'Email verification failed'));
     }
   }
 
@@ -141,8 +216,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
 
     if (response.statusCode != 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['message'] ?? 'Could not resend verification');
+      final body = _tryParseJson(response.body);
+      throw Exception(_extractMessage(body, 'Could not resend verification'));
     }
   }
 
@@ -154,8 +229,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
 
     if (response.statusCode != 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['message'] ?? 'Request failed');
+      final body = _tryParseJson(response.body);
+      throw Exception(_extractMessage(body, 'Request failed'));
     }
   }
 
@@ -170,8 +245,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
 
     if (response.statusCode != 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['message'] ?? 'Password reset failed');
+      final body = _tryParseJson(response.body);
+      throw Exception(_extractMessage(body, 'Password reset failed'));
     }
   }
 }

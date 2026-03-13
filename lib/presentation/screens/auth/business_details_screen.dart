@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:prepal2/presentation/providers/auth_provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
-import 'package:prepal2/presentation/screens/auth/verification_screen.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   const BusinessDetailsScreen({super.key});
@@ -32,6 +30,35 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     'Others',
   ];
 
+  bool _formPrefilled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_prefillFromExistingBusiness);
+  }
+
+  Future<void> _prefillFromExistingBusiness() async {
+    if (!mounted || _formPrefilled) return;
+
+    final provider = context.read<BusinessProvider>();
+    if (!provider.hasBusiness) {
+      await provider.loadBusinesses();
+      if (!mounted) return;
+    }
+
+    final existing = context.read<BusinessProvider>().currentBusiness;
+    if (existing == null || _formPrefilled) return;
+
+    _businessNameController.text = existing.businessName;
+    _locationController.text = existing.location;
+    if (_businessTypes.contains(existing.businessType)) {
+      _selectedBusinessType = existing.businessType;
+    }
+    _formPrefilled = true;
+    setState(() {});
+  }
+
   @override
   void dispose() {
     _businessNameController.dispose();
@@ -56,33 +83,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     );
 
     if (success && mounted && navigateAfter) {
-      final authProvider = context.read<AuthProvider>();
-      final shouldVerify =
-          authProvider.status != AuthStatus.authenticated &&
-          (authProvider.userEmail?.isNotEmpty ?? false);
-
-      if (shouldVerify) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VerificationScreen(
-              email: authProvider.userEmail!,
-              onVerified: (verificationContext) {
-                Navigator.pushAndRemoveUntil(
-                  verificationContext,
-                  MaterialPageRoute(builder: (_) => const MainShell()),
-                  (route) => false,
-                );
-              },
-            ),
-          ),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainShell()),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
     } else if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
