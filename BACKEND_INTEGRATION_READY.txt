@@ -3,8 +3,7 @@ Hey! Backend integration is ready for testing. Here's what's wired up:
 Auth Flow (Complete & Connected to Backend):
 1. Login Screen → Calls /api/auth/login with email & password
 2. Signup Screen → Calls /api/auth/register with username, email & password  
-3. Verification Screen → Calls /api/auth/verify-email with email & 4-digit OTP code
-4. Business Details Screen → Calls /api/business/register with business info
+3. Business Details Screen → Calls /api/business/register with business info
 
 What Each Endpoint Should Return:
 
@@ -19,12 +18,6 @@ Login/Signup:
   }
 }
 
-Email Verification:
-{
-  "success": true,
-  "message": "Email verified"
-}
-Note: verification codes are now exactly 4 digits; both the client and API expect this length.
 Business Register:
 {
   "success": true,
@@ -39,6 +32,6 @@ All endpoints have:
 - Proper error handling & user feedback
 - Loading states on all buttons
 
-Ready to test end-to-end flow: Login → Signup → Verification → Business Details → Dashboard
+Ready to test end-to-end flow: Login → Signup → Business Details → Dashboard
 
 Any issues, check the app logs or let me know!

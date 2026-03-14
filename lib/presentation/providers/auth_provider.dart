@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:prepal2/core/di/service_locator.dart';
 import 'package:prepal2/data/models/auth/user_model.dart';
 import 'package:prepal2/domain/repositories/auth_repository.dart';
 import 'package:prepal2/domain/usercases/login_usercase.dart';
@@ -15,8 +14,6 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.initial;
   UserModel? _currentUser;
   String? _errorMessage;
-  String? _userEmail; // stored for verification screen
-  bool _proceedToVerification = false;
 
   AuthProvider({
     required this.loginUseCase,
@@ -29,8 +26,6 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus get status => _status;
   UserModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
-  String? get userEmail => _userEmail;
-  bool get shouldProceedToVerification => _proceedToVerification;
   bool get isLoading => _status == AuthStatus.loading;
 
   // ── Session Resolution ──────────────────────────────────────
@@ -61,7 +56,6 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       _currentUser = await loginUseCase(email: email, password: password);
-      _userEmail = email;
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
@@ -81,81 +75,27 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
-    _proceedToVerification = false;
     notifyListeners();
 
     try {
       // signupUseCase requires businessName — pass empty string
-      // (business setup happens on BusinessDetailsScreen after verification)
-      _currentUser = await signupUseCase(
+      // (business setup happens on BusinessDetailsScreen)
+      await signupUseCase(
         username: username,
         email: email,
         password: password,
         confirmPassword: password, // already validated in UI
         businessName: '',
       );
-      _userEmail = email;
-      _proceedToVerification = true;
-      // Not authenticated yet — email verification required
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = _clean(e);
-      _userEmail = email;
-      _proceedToVerification = _shouldContinueToVerification(_errorMessage!);
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return false;
-    }
-  }
 
-  // ── Email Verification ──────────────────────────────────────
-  Future<bool> verifyEmail({required String otp}) async {
-    _status = AuthStatus.loading;
-    _errorMessage = null;
-    notifyListeners();
-
-    // enforce exact length before hitting network
-    if (otp.length != 4) {
-      _errorMessage = 'Verification code must be 4 digits';
-      _status = AuthStatus.error;
-      notifyListeners();
-      return false;
-    }
-
-    try {
-      // Call API: POST /auth/verify-email { token: otp }
-      final authDataSource = serviceLocator.authRemoteDataSource;
-      await authDataSource.verifyEmail(otp: otp);
-
+      // Sign up now logs in directly.
+      _currentUser = await loginUseCase(email: email, password: password);
       _status = AuthStatus.authenticated;
       notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = _clean(e);
-      _status = AuthStatus.error;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // ── Resend Verification
-  Future<bool> resendVerificationEmail(String email) async {
-    _status = AuthStatus.loading;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final authDataSource = serviceLocator.authRemoteDataSource;
-      await authDataSource.resendVerificationEmail(email);
-
       _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = _clean(e);
-      _status = AuthStatus.error;
       notifyListeners();
       return false;
     }
@@ -165,7 +105,6 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await authRepository.logout();
     _currentUser = null;
-    _userEmail = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
   }
@@ -176,12 +115,4 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _clean(Object e) => e.toString().replaceAll('Exception: ', '');
-
-  bool _shouldContinueToVerification(String message) {
-    final normalized = message.toLowerCase();
-    return normalized.contains('account may have already been created') ||
-        normalized.contains('already exists') ||
-        normalized.contains('already taken') ||
-        normalized.contains('duplicate');
-  }
 }

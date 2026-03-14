@@ -5,6 +5,7 @@ import 'package:prepal2/presentation/providers/dashboard_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
 import 'package:prepal2/presentation/providers/forecast_provider.dart';
+import 'package:prepal2/presentation/providers/alerts_provider.dart';
 import 'package:prepal2/presentation/screens/dashboard/dashboard_screen.dart';
 import 'package:prepal2/presentation/screens/forecast/demand_forecast_screen.dart';
 import 'package:prepal2/presentation/screens/inventory/inventory_list_screen.dart';
@@ -55,6 +56,8 @@ class _MainShellState extends State<MainShell> {
         await context.read<DashboardProvider>().loadSales(businessId);
         if (!mounted) return;
         await context.read<ForecastProvider>().loadForecastData();
+        if (!mounted) return;
+        await context.read<AlertsProvider>().loadAlerts(businessId);
       }
     });
   }

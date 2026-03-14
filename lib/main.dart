@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
 import 'package:prepal2/presentation/providers/dashboard_provider.dart';
 import 'package:prepal2/presentation/providers/forecast_provider.dart';
+import 'package:prepal2/presentation/providers/alerts_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -79,6 +80,7 @@ void main() async {
               ForecastProvider(serviceLocator.forecastRemoteDataSource),
         ),
         ChangeNotifierProvider(create: (_) => DailySalesProvider()),
+        ChangeNotifierProvider(create: (_) => AlertsProvider()),
       ],
       child: const PrepPalApp(),
     ),

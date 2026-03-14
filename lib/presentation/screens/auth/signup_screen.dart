@@ -1,6 +1,5 @@
 // lib/presentation/screens/auth/signup_screen.dart
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
@@ -22,16 +21,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-
-  void _fillTestSignupData() {
-    setState(() {
-      _usernameController.text =
-          'tester${DateTime.now().millisecondsSinceEpoch % 10000}';
-      _emailController.text = 'tester@example.com';
-      _passwordController.text = 'Test@1234';
-      _confirmPasswordController.text = 'Test@1234';
-    });
-  }
 
   @override
   void dispose() {
@@ -433,32 +422,6 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                           ),
                         ),
-
-                        if (kDebugMode) ...[
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Debug shortcuts',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton(
-                                onPressed: _fillTestSignupData,
-                                child: const Text('Autofill test data'),
-                              ),
-                            ],
-                          ),
-                        ],
 
                         const SizedBox(height: 32),
                       ],

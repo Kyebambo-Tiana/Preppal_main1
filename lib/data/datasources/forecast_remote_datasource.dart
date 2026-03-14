@@ -27,12 +27,15 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     String type, {
     Map<String, dynamic>? extra,
   }) {
+    final businessType = _apiClient.getBusinessType();
     return {
       'type': type,
       'businessId': _apiClient.getBusinessId() ?? '',
       // Required by current ML validation contract.
       'item_name': 'all_items',
-      'business_type': 'Cafe',
+      'business_type': (businessType == null || businessType.trim().isEmpty)
+          ? 'Others'
+          : businessType,
       'date': _today(),
       'price': 0,
       'shelf_life_hours': 24,

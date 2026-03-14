@@ -11,6 +11,7 @@ class ApiClient {
   late SharedPreferences _prefs;
   String? _authToken;
   String? _businessId; // cached after business load
+  String? _businessType;
 
   ApiClient({http.Client? httpClient})
     : httpClient = httpClient ?? http.Client();
@@ -20,6 +21,7 @@ class ApiClient {
     _prefs = await SharedPreferences.getInstance();
     _authToken = _prefs.getString('auth_token');
     _businessId = _prefs.getString('business_id');
+    _businessType = _prefs.getString('business_type');
   }
 
   // ── Token Management ────────────────────────────────────────
@@ -47,11 +49,20 @@ class ApiClient {
 
   String? getBusinessId() => _businessId;
 
+  Future<void> setBusinessType(String businessType) async {
+    _businessType = businessType;
+    await _prefs.setString('business_type', businessType);
+  }
+
+  String? getBusinessType() => _businessType;
+
   Future<void> clearAll() async {
     _authToken = null;
     _businessId = null;
+    _businessType = null;
     await _prefs.remove('auth_token');
     await _prefs.remove('business_id');
+    await _prefs.remove('business_type');
   }
 
   // ── Headers ─────────────────────────────────────────────────

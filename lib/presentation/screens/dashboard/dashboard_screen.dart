@@ -881,14 +881,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ── Header Widget ─────────────────────────────────────────────
-// CHANGE 2: Accepts real values as parameters instead of hardcoding them
 
 class _DashboardHeader extends StatelessWidget {
   final String businessName;
-  final String wasteReduction; // ✅ was hardcoded '35%'
-  final int highRisk; // ✅ was hardcoded '1'
-  final int mediumRisk; // ✅ was hardcoded '0'
-  final int lowRisk; // ✅ was hardcoded '3'
+  final String wasteReduction;
+  final int highRisk;
+  final int mediumRisk;
+  final int lowRisk;
   final Uint8List? profileImageBytes;
   final VoidCallback onMenuTap;
   final VoidCallback onProfileTap;
@@ -946,7 +945,6 @@ class _DashboardHeader extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    // ✅ REAL business name from BusinessProvider
                     Text(
                       businessName,
                       style: const TextStyle(
@@ -1084,7 +1082,6 @@ class _DashboardHeader extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // ✅ REAL VALUE — was hardcoded '35%'
                       Text(
                         wasteReduction,
                         style: const TextStyle(
@@ -1154,7 +1151,6 @@ class _DashboardHeader extends StatelessWidget {
                         runSpacing: 4,
                         alignment: WrapAlignment.spaceBetween,
                         children: [
-                          // ✅ REAL VALUES — were hardcoded '1', '0', '3'
                           _buildRiskPill(
                             'High',
                             '$highRisk',

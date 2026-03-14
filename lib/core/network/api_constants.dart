@@ -11,9 +11,6 @@ class ApiConstants {
   // ── Auth ───────────────────────────────────────────────────
   static const String authSignup = '/api/v1/auth/signup';
   static const String authLogin = '/api/v1/auth/login';
-  static const String authVerifyEmail = '/api/v1/auth/verify-email';
-  static const String authResendVerification =
-      '/api/v1/auth/resend-verification';
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authResetPassword = '/api/v1/auth/reset-password';
 
@@ -45,6 +42,12 @@ class ApiConstants {
   static String saleById(String id) => '/api/v1/daily-sales/$id';
   static String saleUpdate(String id) => '/api/v1/daily-sales/update/$id';
   static String saleDelete(String id) => '/api/v1/daily-sales/$id';
+
+  // ── Alerts ────────────────────────────────────────────────
+  static const String alertsAll = '/api/v1/alerts';
+  static String alertsByBusiness(String id) => '/api/v1/alerts/business/$id';
+  static String alertUpdate(String id) => '/api/v1/alerts/update/$id';
+  static String alertDelete(String id) => '/api/v1/alerts/$id';
 
   // ── Timeouts ───────────────────────────────────────────────
   // Increased from 30 to 120 to accommodate Render free-tier cold starts

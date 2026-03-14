@@ -44,6 +44,10 @@ class BusinessRemoteDataSourceImpl implements BusinessRemoteDataSource {
       if (data['id'] != null) {
         await _apiClient.setBusinessId(data['id'] as String);
       }
+      final type = data['businessType'];
+      if (type is String && type.trim().isNotEmpty) {
+        await _apiClient.setBusinessType(type);
+      }
       return data;
     } else {
       if (body['errors'] != null) {
@@ -84,6 +88,10 @@ class BusinessRemoteDataSourceImpl implements BusinessRemoteDataSource {
 
       if (businesses.isNotEmpty && businesses.first['id'] != null) {
         await _apiClient.setBusinessId(businesses.first['id'] as String);
+        final type = businesses.first['businessType'];
+        if (type is String && type.trim().isNotEmpty) {
+          await _apiClient.setBusinessType(type);
+        }
       }
 
       return businesses;
@@ -98,7 +106,12 @@ class BusinessRemoteDataSourceImpl implements BusinessRemoteDataSource {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode == 200) {
-      return body['data'] as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
+      final type = data['businessType'];
+      if (type is String && type.trim().isNotEmpty) {
+        await _apiClient.setBusinessType(type);
+      }
+      return data;
     }
     throw Exception(body['message'] ?? 'Business not found');
   }
@@ -115,7 +128,12 @@ class BusinessRemoteDataSourceImpl implements BusinessRemoteDataSource {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode == 200) {
-      return body['data'] as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
+      final type = data['businessType'];
+      if (type is String && type.trim().isNotEmpty) {
+        await _apiClient.setBusinessType(type);
+      }
+      return data;
     }
     throw Exception(body['message'] ?? 'Failed to update business');
   }

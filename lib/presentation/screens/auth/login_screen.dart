@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
@@ -18,21 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-
-  void _fillTestCredentials() {
-    setState(() {
-      _emailController.text = 'tester@example.com';
-      _passwordController.text = 'Test@1234';
-    });
-  }
-
-  void _openAppWithoutLogin() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
-      (route) => false,
-    );
-  }
 
   @override
   void dispose() {
@@ -226,36 +210,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                           ),
                         ),
-
-                        if (kDebugMode) ...[
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Debug shortcuts',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton(
-                                onPressed: _fillTestCredentials,
-                                child: const Text('Use test credentials'),
-                              ),
-                              OutlinedButton(
-                                onPressed: _openAppWithoutLogin,
-                                child: const Text('Open app without login'),
-                              ),
-                            ],
-                          ),
-                        ],
 
                         const SizedBox(height: 32),
                       ],

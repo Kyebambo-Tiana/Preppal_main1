@@ -46,9 +46,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       lastDate: DateTime(2030),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFFD32F2F),
-          ),
+          colorScheme: const ColorScheme.light(primary: Color(0xFFD32F2F)),
         ),
         child: child!,
       ),
@@ -62,8 +60,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    print('AddProductScreen: submit tapped');
-
     if (!_formKey.currentState!.validate()) return;
 
     // ensure shelf life is non-negative integer
@@ -94,12 +90,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           : double.tryParse(_thresholdController.text),
     );
 
-    print('Adding product: ${product.name}, quantity ${product.quantityAvailable}, shelfLife ${product.shelfLife}');
-
-    final success =
-        await context.read<InventoryProvider>().addProduct(product);
-
-    print('AddProductScreen: addProduct returned $success');
+    final success = await context.read<InventoryProvider>().addProduct(product);
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -113,8 +104,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              context.read<InventoryProvider>().errorMessage ??
-                  'Error adding product'),
+            context.read<InventoryProvider>().errorMessage ??
+                'Error adding product',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -161,290 +153,267 @@ class _AddProductScreenState extends State<AddProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              const Text(
-                'Product name',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                decoration:
-                    const InputDecoration(hintText: 'e.g. Whole Milk'),
-                validator: (v) =>
-                    v!.isEmpty ? 'Product name is required' : null,
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Product type',
-                          style:
-                              TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<ProductCategory>(
-                          value: _selectedCategory,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          items:
-                              ProductCategory.values.map((cat) {
-                            final label =
-                                cat.name[0].toUpperCase() +
-                                    cat.name.substring(1);
-                            return DropdownMenuItem(
-                              value: cat,
-                              child: Text(label),
-                            );
-                          }).toList(),
-                          onChanged: (val) =>
-                              setState(() =>
-                                  _selectedCategory = val!),
-                        ),
-                      ],
-                    ),
+                  const Text(
+                    'Product name',
+                    style: TextStyle(fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DatePickerField(
-                      label: 'Production date',
-                      date: _productionDate,
-                      onTap: _pickDate,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Quantity produced',
-                          style:
-                              TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _quantityController,
-                          keyboardType:
-                              TextInputType.number,
-                          decoration: const InputDecoration(
-                              hintText: 'e.g. 50'),
-                          validator: (v) {
-                            if (v!.isEmpty) return 'Required';
-                            if (double.tryParse(v) ==
-                                null) return 'Invalid';
-                            if (double.parse(v) < 0)
-                              return 'Must be ≥ 0';
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Unit',
-                          style:
-                              TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<ProductUnit>(
-                          value: _selectedUnit,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          items:
-                              ProductUnit.values.map((unit) {
-                            return DropdownMenuItem(
-                              value: unit,
-                              child: Text(unit.name.toUpperCase()),
-                            );
-                          }).toList(),
-                          onChanged: (val) =>
-                              setState(() =>
-                                  _selectedUnit = val!),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Price per unit',
-                          style:
-                              TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _priceController,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(hintText: 'e.g. 500'),
-                          validator: (v) {
-                            if (v!.isEmpty) return 'Required';
-                            if (double.tryParse(v) ==
-                                null) return 'Invalid';
-                            if (double.parse(v) < 0)
-                              return 'Must be ≥ 0';
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Currency',
-                          style:
-                              TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: _selectedCurrency,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          items: _currencies
-                              .map((c) => DropdownMenuItem(
-                                    value: c,
-                                    child: Text(c),
-                                  ))
-                              .toList(),
-                          onChanged: (val) =>
-                              setState(() =>
-                                  _selectedCurrency = val!),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Shelf life (hours)',
-                      style: TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: _shelfLifeController,
-                    keyboardType: TextInputType.number,
+                    controller: _nameController,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. 168',
+                      hintText: 'e.g. Whole Milk',
                     ),
-                    validator: (v) {
-                      if (v!.isEmpty) return 'Required';
-                      if (int.tryParse(v) == null) return 'Invalid';
-                      if (int.parse(v) < 0) return 'Must be ≥ 0';
-                      return null;
-                    },
+                    validator: (v) =>
+                        v!.isEmpty ? 'Product name is required' : null,
                   ),
-                ],
-              ),
+                  const SizedBox(height: 16),
 
-              const SizedBox(height: 32),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize:
-                            const Size(double.infinity, 48),
-                        side: const BorderSide(
-                            color: Color(0xFFD32F2F)),
-                        foregroundColor:
-                            const Color(0xFFD32F2F),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Product type',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<ProductCategory>(
+                              value: _selectedCategory,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.grey.shade100,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              items: ProductCategory.values.map((cat) {
+                                final label =
+                                    cat.name[0].toUpperCase() +
+                                    cat.name.substring(1);
+                                return DropdownMenuItem(
+                                  value: cat,
+                                  child: Text(label),
+                                );
+                              }).toList(),
+                              onChanged: (val) =>
+                                  setState(() => _selectedCategory = val!),
+                            ),
+                          ],
                         ),
                       ),
-                      child: const Text('Cancel'),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DatePickerField(
+                          label: 'Production date',
+                          date: _productionDate,
+                          onTap: _pickDate,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: inventory.isLoading
-                          ? null
-                          : _handleSubmit,
-                      child: inventory.isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child:
-                                  CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
+
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Quantity produced',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _quantityController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 50',
                               ),
-                            )
-                          : const Text('Submit'),
-                    ),
+                              validator: (v) {
+                                if (v!.isEmpty) return 'Required';
+                                if (double.tryParse(v) == null)
+                                  return 'Invalid';
+                                if (double.parse(v) < 0) return 'Must be ≥ 0';
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Unit',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<ProductUnit>(
+                              value: _selectedUnit,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.grey.shade100,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              items: ProductUnit.values.map((unit) {
+                                return DropdownMenuItem(
+                                  value: unit,
+                                  child: Text(unit.name.toUpperCase()),
+                                );
+                              }).toList(),
+                              onChanged: (val) =>
+                                  setState(() => _selectedUnit = val!),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Price per unit',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _priceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: 'e.g. 500',
+                              ),
+                              validator: (v) {
+                                if (v!.isEmpty) return 'Required';
+                                if (double.tryParse(v) == null)
+                                  return 'Invalid';
+                                if (double.parse(v) < 0) return 'Must be ≥ 0';
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Currency',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              value: _selectedCurrency,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.grey.shade100,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              items: _currencies
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c,
+                                      child: Text(c),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setState(() => _selectedCurrency = val!),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Shelf life (hours)',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _shelfLifeController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(hintText: 'e.g. 168'),
+                        validator: (v) {
+                          if (v!.isEmpty) return 'Required';
+                          if (int.tryParse(v) == null) return 'Invalid';
+                          if (int.parse(v) < 0) return 'Must be ≥ 0';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            side: const BorderSide(color: Color(0xFFD32F2F)),
+                            foregroundColor: const Color(0xFFD32F2F),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: inventory.isLoading ? null : _handleSubmit,
+                          child: inventory.isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Submit'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        ],
-      ),
       ),
     );
   }
@@ -464,34 +433,25 @@ class _DatePickerField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style:
-                const TextStyle(fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: onTap,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius:
-                  BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today,
-                    size: 16,
-                    color: Colors.grey),
+                const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(
                   '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}',
-                  style:
-                      const TextStyle(fontSize: 13),
+                  style: const TextStyle(fontSize: 13),
                 ),
               ],
             ),
