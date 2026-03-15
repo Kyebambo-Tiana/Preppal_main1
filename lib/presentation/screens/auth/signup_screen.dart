@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
+import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
+import 'package:prepal2/presentation/screens/main_shell.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -54,9 +56,17 @@ class _SignupScreenState extends State<SignupScreen> {
     );
 
     if (success && mounted) {
+      await context.read<BusinessProvider>().loadBusinesses();
+      if (!mounted) return;
+
+      final hasBusiness = context.read<BusinessProvider>().hasBusiness;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const BusinessDetailsScreen()),
+        MaterialPageRoute(
+          builder: (_) =>
+              hasBusiness ? const MainShell() : const BusinessDetailsScreen(),
+        ),
       );
     }
   }

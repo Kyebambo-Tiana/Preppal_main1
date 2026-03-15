@@ -71,7 +71,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return 'Required';
                           final parsed = double.tryParse(v);
-                          if (parsed == null || parsed < 0) return 'Invalid';
+                          if (parsed == null || parsed <= 0)
+                            return 'Must be > 0';
                           return null;
                         },
                       ),

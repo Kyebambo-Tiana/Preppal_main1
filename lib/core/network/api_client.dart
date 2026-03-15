@@ -82,11 +82,13 @@ class ApiClient {
     required String requestName,
   }) async {
     var attempt = 0;
+    final totalTimeoutSeconds =
+        ApiConstants.connectionTimeout + ApiConstants.receiveTimeout;
 
     while (true) {
       try {
         final response = await request().timeout(
-          const Duration(seconds: ApiConstants.connectionTimeout),
+          Duration(seconds: totalTimeoutSeconds),
         );
         _log(response);
         return response;
@@ -193,7 +195,7 @@ class ApiClient {
     // normal condition that we already handle upstream, so we avoid spamming
     // the console with a red error indicator for that particular path.
     final path = response.request?.url.path ?? '';
-    if (response.statusCode == 404 && path.contains('/business')) {
+    if (response.statusCode == 404 && path == '/api/v1/business') {
       print('API 404 (no business): ${response.request?.url}');
       return;
     }

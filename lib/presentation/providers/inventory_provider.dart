@@ -17,10 +17,10 @@ class InventoryProvider extends ChangeNotifier {
     required AddProductUseCase addProduct,
     required UpdateProductUseCase updateProduct,
     required DeleteProductUseCase deleteProduct,
-  })  : _getAllProducts = getAllProducts,
-        _addProduct = addProduct,
-        _updateProduct = updateProduct,
-        _deleteProduct = deleteProduct;
+  }) : _getAllProducts = getAllProducts,
+       _addProduct = addProduct,
+       _updateProduct = updateProduct,
+       _deleteProduct = deleteProduct;
 
   // --- State ---
   InventoryStatus _status = InventoryStatus.initial;
@@ -42,13 +42,12 @@ class InventoryProvider extends ChangeNotifier {
   // Filtered products — what the inventory list screen shows
   List<ProductModel> get filteredProducts {
     return _products.where((product) {
-      final matchesSearch = product.name
-          .toLowerCase()
-          .contains(_searchQuery.toLowerCase());
+      final matchesSearch = product.name.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
 
       final matchesCategory =
-          _selectedCategory == null ||
-              product.category == _selectedCategory;
+          _selectedCategory == null || product.category == _selectedCategory;
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -76,8 +75,7 @@ class InventoryProvider extends ChangeNotifier {
       _products = await _getAllProducts.call();
       _status = InventoryStatus.loaded;
     } catch (e) {
-      _errorMessage =
-          e.toString().replaceAll('Exception: ', '');
+      _errorMessage = _cleanApiError(e);
       _status = InventoryStatus.error;
     }
 
@@ -91,15 +89,13 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final newProduct =
-          await _addProduct.call(product);
+      final newProduct = await _addProduct.call(product);
       _products.add(newProduct);
       _status = InventoryStatus.loaded;
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage =
-          e.toString().replaceAll('Exception: ', '');
+      _errorMessage = _cleanApiError(e);
       _status = InventoryStatus.error;
       notifyListeners();
       return false;
@@ -107,36 +103,44 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<bool> updateProduct(ProductModel product) async {
+    _status = InventoryStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
-      final updated =
-          await _updateProduct.call(product);
-      final index = _products
-          .indexWhere((p) => p.id == updated.id);
+      final updated = await _updateProduct.call(product);
+      final index = _products.indexWhere((p) => p.id == updated.id);
 
       if (index != -1) {
         _products[index] = updated;
-        notifyListeners();
       }
+
+      _status = InventoryStatus.loaded;
+      notifyListeners();
 
       return true;
     } catch (e) {
-      _errorMessage =
-          e.toString().replaceAll('Exception: ', '');
+      _errorMessage = _cleanApiError(e);
+      _status = InventoryStatus.error;
       notifyListeners();
       return false;
     }
   }
 
   Future<bool> deleteProduct(String productId) async {
+    _status = InventoryStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       await _deleteProduct.call(productId);
-      _products.removeWhere(
-          (p) => p.id == productId);
+      _products.removeWhere((p) => p.id == productId);
+      _status = InventoryStatus.loaded;
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage =
-          e.toString().replaceAll('Exception: ', '');
+      _errorMessage = _cleanApiError(e);
+      _status = InventoryStatus.error;
       notifyListeners();
       return false;
     }
@@ -171,5 +175,24 @@ class InventoryProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  String _cleanApiError(Object e) {
+    final raw = e.toString().replaceAll('Exception: ', '').trim();
+
+    // Keep user-facing errors concise if backend includes full JSON payloads.
+    if (raw.startsWith('{') && raw.endsWith('}')) {
+      final messageMatch = RegExp(r'"message"\s*:\s*"([^"]+)"').firstMatch(raw);
+      if (messageMatch != null) {
+        return messageMatch.group(1)!;
+      }
+
+      final detailMsgMatch = RegExp(r'"msg"\s*:\s*"([^"]+)"').firstMatch(raw);
+      if (detailMsgMatch != null) {
+        return detailMsgMatch.group(1)!;
+      }
+    }
+
+    return raw;
   }
 }

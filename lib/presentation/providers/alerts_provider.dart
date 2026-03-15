@@ -85,6 +85,14 @@ class AlertsProvider extends ChangeNotifier {
   List<AppAlert> get alerts => _alerts;
 
   Future<void> loadAlerts(String businessId) async {
+    if (businessId.trim().isEmpty) {
+      _alerts = [];
+      _errorMessage = null;
+      _status = AlertsStatus.loaded;
+      notifyListeners();
+      return;
+    }
+
     _status = AlertsStatus.loading;
     _errorMessage = null;
     notifyListeners();

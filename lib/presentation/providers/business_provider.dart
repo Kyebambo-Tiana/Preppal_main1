@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prepal2/core/di/service_locator.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum BusinessStatus { initial, loading, loaded, error, success }
 
@@ -33,10 +35,17 @@ class BusinessModel {
 }
 
 class BusinessProvider extends ChangeNotifier {
+  static const String _kCachedBusinesses = 'cached_businesses';
+  static const String _kCachedCurrentBusinessId = 'cached_current_business_id';
+
   BusinessStatus _status = BusinessStatus.initial;
   String? _errorMessage;
   BusinessModel? _currentBusiness;
   List<BusinessModel> _businesses = [];
+
+  BusinessProvider() {
+    _hydrateFromCache();
+  }
 
   BusinessStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -44,6 +53,68 @@ class BusinessProvider extends ChangeNotifier {
   BusinessModel? get currentBusiness => _currentBusiness;
   List<BusinessModel> get businesses => _businesses;
   bool get hasBusiness => _currentBusiness != null;
+
+  Future<void> _hydrateFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kCachedBusinesses);
+      if (raw == null || raw.isEmpty) return;
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      final cached = decoded
+          .whereType<Map<String, dynamic>>()
+          .map(BusinessModel.fromMap)
+          .where((b) => b.id.isNotEmpty)
+          .toList(growable: false);
+
+      if (cached.isEmpty) return;
+
+      _businesses = cached;
+
+      final preferredId = prefs.getString(_kCachedCurrentBusinessId);
+      _currentBusiness = preferredId == null
+          ? cached.first
+          : cached.firstWhere(
+              (b) => b.id == preferredId,
+              orElse: () => cached.first,
+            );
+
+      _status = BusinessStatus.loaded;
+      notifyListeners();
+    } catch (_) {
+      // Ignore cache parse issues and continue with remote source.
+    }
+  }
+
+  Future<void> _saveCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = _businesses
+        .map(
+          (b) => {
+            'id': b.id,
+            'userId': b.userId,
+            'businessName': b.businessName,
+            'businessType': b.businessType,
+            'location': b.location,
+            'createdAt': b.createdAt,
+          },
+        )
+        .toList(growable: false);
+
+    await prefs.setString(_kCachedBusinesses, jsonEncode(payload));
+
+    if (_currentBusiness != null && _currentBusiness!.id.isNotEmpty) {
+      await prefs.setString(_kCachedCurrentBusinessId, _currentBusiness!.id);
+    }
+  }
+
+  Future<void> _clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kCachedBusinesses);
+    await prefs.remove(_kCachedCurrentBusinessId);
+  }
 
   // ── Load all businesses on app start ───────────────────────
   Future<void> loadBusinesses() async {
@@ -57,13 +128,15 @@ class BusinessProvider extends ChangeNotifier {
 
       if (_businesses.isNotEmpty) {
         _currentBusiness = _businesses.first;
+        await _saveCache();
       }
 
       _status = BusinessStatus.loaded;
     } catch (e) {
-      // Silently handle — user may not have a business yet
-      _businesses = [];
-      _currentBusiness = null;
+      // Keep any cached businesses on network failure.
+      if (_businesses.isEmpty) {
+        _currentBusiness = null;
+      }
       _status = BusinessStatus.loaded;
     }
 
@@ -115,6 +188,8 @@ class BusinessProvider extends ChangeNotifier {
         _businesses[existingIndex] = _currentBusiness!;
       }
 
+      await _saveCache();
+
       _status = BusinessStatus.success;
       notifyListeners();
       return true;
@@ -126,11 +201,12 @@ class BusinessProvider extends ChangeNotifier {
     }
   }
 
-  void reset() {
+  Future<void> reset() async {
     _status = BusinessStatus.initial;
     _errorMessage = null;
     _currentBusiness = null;
     _businesses = [];
+    await _clearCache();
     notifyListeners();
   }
 

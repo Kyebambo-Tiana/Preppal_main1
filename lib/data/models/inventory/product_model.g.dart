@@ -17,10 +17,10 @@ ProductModel _$ProductModelFromJson(Map<String, dynamic> json) => ProductModel(
       ) ??
       ProductCategory.others,
   productionDate: ProductModel._decodeProdDate(json['production_date']),
-  shelfLife: (json['shelf_life'] as num?)?.toInt() ?? 0,
-  quantityAvailable: (json['quantity_available'] as num?)?.toDouble() ?? 0.0,
-  price: (json['price'] as num?)?.toDouble() ?? 0.0,
-  shelf: (json['shelf'] as num?)?.toDouble() ?? 0.0,
+  shelfLife: ProductModel._decodeInt(json['shelf_life']),
+  quantityAvailable: ProductModel._decodeDouble(json['quantity_available']),
+  price: ProductModel._decodeDouble(json['price']),
+  shelf: ProductModel._decodeDouble(json['shelf']),
   unit:
       $enumDecodeNullable(
         _$ProductUnitEnumMap,
@@ -29,7 +29,9 @@ ProductModel _$ProductModelFromJson(Map<String, dynamic> json) => ProductModel(
       ) ??
       ProductUnit.pcs,
   currency: json['currency'] as String? ?? 'NGN',
-  lowStockThreshold: (json['low_stock_threshold'] as num?)?.toDouble(),
+  lowStockThreshold: ProductModel._decodeNullableDouble(
+    json['low_stock_threshold'],
+  ),
   isActive: json['is_active'] as bool? ?? true,
 );
 

@@ -24,6 +24,15 @@ class ForecastProvider extends ChangeNotifier {
 
   ForecastProvider(this._dataSource);
 
+  double _toDouble(dynamic value, {double fallback = 0}) {
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+    return fallback;
+  }
+
   ForecastStatus _status = ForecastStatus.initial;
   String? _errorMessage;
   ForecastData? _forecastData;
@@ -45,8 +54,7 @@ class ForecastProvider extends ChangeNotifier {
   double get forecastAccuracy => _forecastData?.forecastAccuracy ?? 0.0;
 
   // Get AI generated insight
-  String get aiInsight =>
-      _forecastData?.aiInsight ?? 'AI insights pending';
+  String get aiInsight => _forecastData?.aiInsight ?? 'AI insights pending';
 
   /// Load all forecast data from ML service
   Future<void> loadForecastData() async {
@@ -55,30 +63,39 @@ class ForecastProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Fetch all forecast data in parallel
-      final sevenDayFuture = _dataSource.get7DayForecast();
-      final productForecastsFuture = _dataSource.getProductForecasts();
-      final accuracyFuture = _dataSource.getForecastAccuracy();
-      final insightsFuture = _dataSource.getAIInsights();
+      var hadAnyFailure = false;
 
-      final results = await Future.wait([
-        sevenDayFuture,
-        productForecastsFuture,
-        accuracyFuture,
-        insightsFuture,
-      ]);
+      // Keep the page usable even if one ML endpoint has no data yet.
+      final sevenDay = await _dataSource.get7DayForecast().catchError((_) {
+        hadAnyFailure = true;
+        return <String, dynamic>{'days': <Map<String, dynamic>>[]};
+      });
 
-      final sevenDay = results[0] as Map<String, dynamic>;
-      final productForecasts = results[1] as List<Map<String, dynamic>>;
-      final accuracy = results[2] as Map<String, dynamic>;
-      final insights = results[3] as Map<String, dynamic>;
+      final productForecasts = await _dataSource
+          .getProductForecasts()
+          .catchError((_) {
+            hadAnyFailure = true;
+            return <Map<String, dynamic>>[];
+          });
+
+      final accuracy = await _dataSource.getForecastAccuracy().catchError((_) {
+        hadAnyFailure = true;
+        return <String, dynamic>{'accuracy': 0.0, 'daysAnalyzed': 0};
+      });
+
+      final insights = await _dataSource.getAIInsights().catchError((_) {
+        hadAnyFailure = true;
+        return <String, dynamic>{
+          'message': 'No AI insight available yet from backend.',
+          'type': 'info',
+        };
+      });
 
       // Format 7-day forecast data
       final sevenDayList = _formatSevenDayForecast(sevenDay);
 
       // Extract accuracy percentage
-      final accuracyPercent =
-          (accuracy['accuracy'] as num?)?.toDouble() ?? 0.0;
+      final accuracyPercent = _toDouble(accuracy['accuracy']);
 
       // Extract AI insight message
       final insightMessage =
@@ -92,10 +109,13 @@ class ForecastProvider extends ChangeNotifier {
         aiInsight: insightMessage,
       );
 
+      if (hadAnyFailure) {
+        _errorMessage = 'Some forecast metrics are unavailable right now.';
+      }
+
       _status = ForecastStatus.loaded;
     } catch (e) {
-      _errorMessage =
-          e.toString().replaceAll('Exception: ', '');
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       _status = ForecastStatus.error;
       print('ForecastProvider error: $_errorMessage');
     }
@@ -105,7 +125,8 @@ class ForecastProvider extends ChangeNotifier {
 
   /// Format ML response into 7-day forecast structure
   List<Map<String, dynamic>> _formatSevenDayForecast(
-      Map<String, dynamic> data) {
+    Map<String, dynamic> data,
+  ) {
     // ML service should return data in format: {days: [{day, actual, predicted}]}
     final daysData = data['days'] as List?;
 

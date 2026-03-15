@@ -21,6 +21,8 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
 
   ForecastRemoteDataSourceImpl(this._apiClient);
 
+  static const double _minimumAcceptedPrice = 1.0;
+
   String _today() => DateTime.now().toIso8601String().split('T').first;
 
   Map<String, dynamic> _basePayload(
@@ -37,7 +39,8 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
           ? 'Others'
           : businessType,
       'date': _today(),
-      'price': 0,
+      // Backend validation requires strictly positive price.
+      'price': _minimumAcceptedPrice,
       'shelf_life_hours': 24,
       ...?extra,
     };
@@ -58,6 +61,18 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
       if (decoded is Map<String, dynamic> && decoded['message'] is String) {
         throw Exception(decoded['message']);
       }
+
+      if (decoded is Map<String, dynamic> && decoded['detail'] is List) {
+        final details = decoded['detail'] as List;
+        if (details.isNotEmpty && details.first is Map<String, dynamic>) {
+          final first = details.first as Map<String, dynamic>;
+          final msg = first['msg'];
+          if (msg is String && msg.trim().isNotEmpty) {
+            throw Exception(msg.trim());
+          }
+        }
+      }
+
       throw Exception('ML request failed for $type');
     }
 
@@ -82,7 +97,8 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
     if (listData is List && listData.isNotEmpty) {
       return {'days': listData};
     }
-    throw Exception('No 7-day forecast data returned by backend');
+    // No forecast rows yet is a valid backend state for new businesses.
+    return const {'days': <Map<String, dynamic>>[]};
   }
 
   @override
@@ -109,7 +125,8 @@ class ForecastRemoteDataSourceImpl implements ForecastRemoteDataSource {
       };
     }
 
-    throw Exception('No forecast accuracy data returned by backend');
+    // Backend may not return accuracy until enough historical data exists.
+    return const {'accuracy': 0.0, 'daysAnalyzed': 0};
   }
 
   @override

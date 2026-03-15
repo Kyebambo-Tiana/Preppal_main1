@@ -6,16 +6,22 @@ part 'sale_model.g.dart';
 
 @JsonSerializable()
 class SaleItemModel {
+  static double _decodeDouble(Object? raw) {
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim()) ?? 0.0;
+    return 0.0;
+  }
+
   @JsonKey(name: 'product_id')
   final String productId;
 
   @JsonKey(name: 'product_name')
   final String productName;
 
-  @JsonKey(name: 'quantity_sold')
+  @JsonKey(name: 'quantity_sold', fromJson: _decodeDouble)
   final double quantitySold;
 
-  @JsonKey(name: 'unit_price')
+  @JsonKey(name: 'unit_price', fromJson: _decodeDouble)
   final double unitPrice;
 
   // Revenue = quantity sold × unit price (computed, not stored)
@@ -55,8 +61,7 @@ class SaleModel {
   });
 
   // Total revenue for this day — sum of all item revenues
-  double get totalRevenue =>
-      items.fold(0.0, (sum, item) => sum + item.revenue);
+  double get totalRevenue => items.fold(0.0, (sum, item) => sum + item.revenue);
 
   // Total units sold across all products for this day
   double get totalUnitsSold =>

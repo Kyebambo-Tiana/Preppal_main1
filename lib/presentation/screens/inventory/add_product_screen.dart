@@ -93,13 +93,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final success = await context.read<InventoryProvider>().addProduct(product);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product added successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context);
+      // On web, showing a SnackBar on this route and immediately popping can
+      // trigger transient DOM removal errors. Return success and let the
+      // previous screen show feedback.
+      FocusManager.instance.primaryFocus?.unfocus();
+      Navigator.pop(context, true);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -238,7 +236,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 if (v!.isEmpty) return 'Required';
                                 if (double.tryParse(v) == null)
                                   return 'Invalid';
-                                if (double.parse(v) < 0) return 'Must be ≥ 0';
+                                if (double.parse(v) <= 0) return 'Must be > 0';
                                 return null;
                               },
                             ),

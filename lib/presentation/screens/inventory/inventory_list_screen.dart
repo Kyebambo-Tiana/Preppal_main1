@@ -170,11 +170,22 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                final created = await Navigator.push<bool>(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => const AddProductScreen(),
+                                  ),
+                                );
+
+                                if (!mounted || created != true) return;
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Product added successfully!',
+                                    ),
+                                    backgroundColor: Colors.green,
                                   ),
                                 );
                               },

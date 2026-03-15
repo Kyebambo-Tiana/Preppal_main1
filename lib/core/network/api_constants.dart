@@ -50,9 +50,9 @@ class ApiConstants {
   static String alertDelete(String id) => '/api/v1/alerts/$id';
 
   // ── Timeouts ───────────────────────────────────────────────
-  // Increased from 30 to 120 to accommodate Render free-tier cold starts
-  static const int connectionTimeout = 120;
-  static const int receiveTimeout = 360;
+  // Increased to 500 to accommodate slow backend responses/cold starts.
+  static const int connectionTimeout = 500;
+  static const int receiveTimeout = 500;
 
   // ── Network Resilience ──────────────────────────────────────
   // Number of retries after the first failed attempt.

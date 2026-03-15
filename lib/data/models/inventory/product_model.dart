@@ -9,25 +9,40 @@ part 'product_model.g.dart';
 
 // All available product categories (from wireframe dropdown)
 enum ProductCategory {
-  @JsonValue('Beverages') beverages,
-  @JsonValue('Dairy') dairy,
-  @JsonValue('Snacks') snacks,
-  @JsonValue('Produce') produce,
-  @JsonValue('Bakery') bakery,
-  @JsonValue('Meat') meat,
-  @JsonValue('Spices') spices,
-  @JsonValue('Frozen') frozen,
-  @JsonValue('Others') others,
+  @JsonValue('Beverages')
+  beverages,
+  @JsonValue('Dairy')
+  dairy,
+  @JsonValue('Snacks')
+  snacks,
+  @JsonValue('Produce')
+  produce,
+  @JsonValue('Bakery')
+  bakery,
+  @JsonValue('Meat')
+  meat,
+  @JsonValue('Spices')
+  spices,
+  @JsonValue('Frozen')
+  frozen,
+  @JsonValue('Others')
+  others,
 }
 
 // Units of measurement
 enum ProductUnit {
-  @JsonValue('kg') kg,
-  @JsonValue('g') g,
-  @JsonValue('L') litre,
-  @JsonValue('ml') ml,
-  @JsonValue('pcs') pcs,
-  @JsonValue('dozen') dozen,
+  @JsonValue('kg')
+  kg,
+  @JsonValue('g')
+  g,
+  @JsonValue('L')
+  litre,
+  @JsonValue('ml')
+  ml,
+  @JsonValue('pcs')
+  pcs,
+  @JsonValue('dozen')
+  dozen,
 }
 
 @JsonSerializable()
@@ -39,26 +54,52 @@ class ProductModel {
     return DateTime(2020, 1, 1);
   }
 
+  static double _decodeDouble(Object? raw) {
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim()) ?? 0.0;
+    return 0.0;
+  }
+
+  static int _decodeInt(Object? raw) {
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw.trim()) ?? 0;
+    return 0;
+  }
+
+  static double? _decodeNullableDouble(Object? raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim());
+    return null;
+  }
+
   @JsonKey(defaultValue: '')
   final String id;
   @JsonKey(defaultValue: '')
   final String name;
-  @JsonKey(defaultValue: ProductCategory.others, unknownEnumValue: ProductCategory.others)
+  @JsonKey(
+    defaultValue: ProductCategory.others,
+    unknownEnumValue: ProductCategory.others,
+  )
   final ProductCategory category;
 
   @JsonKey(name: 'production_date', fromJson: _decodeProdDate)
   final DateTime productionDate;
 
-  @JsonKey(name: 'shelf_life', defaultValue: 0)
+  @JsonKey(name: 'shelf_life', defaultValue: 0, fromJson: _decodeInt)
   final int shelfLife; // number of hours product remains good after production
 
-  @JsonKey(name: 'quantity_available', defaultValue: 0.0)
+  @JsonKey(
+    name: 'quantity_available',
+    defaultValue: 0.0,
+    fromJson: _decodeDouble,
+  )
   final double quantityAvailable;
 
-  @JsonKey(defaultValue: 0.0)
+  @JsonKey(defaultValue: 0.0, fromJson: _decodeDouble)
   final double price;
 
-  @JsonKey(defaultValue: 0.0)
+  @JsonKey(defaultValue: 0.0, fromJson: _decodeDouble)
   final double shelf;
 
   @JsonKey(defaultValue: ProductUnit.pcs, unknownEnumValue: ProductUnit.pcs)
@@ -72,7 +113,7 @@ class ProductModel {
 
   // Low stock threshold — user defined per product
   // If null, falls back to the global fixed threshold (10)
-  @JsonKey(name: 'low_stock_threshold')
+  @JsonKey(name: 'low_stock_threshold', fromJson: _decodeNullableDouble)
   final double? lowStockThreshold;
 
   @JsonKey(name: 'is_active', defaultValue: true)
@@ -134,14 +175,12 @@ class ProductModel {
       category: category ?? this.category,
       productionDate: productionDate ?? this.productionDate,
       shelfLife: shelfLife ?? this.shelfLife,
-      quantityAvailable:
-          quantityAvailable ?? this.quantityAvailable,
+      quantityAvailable: quantityAvailable ?? this.quantityAvailable,
       price: price ?? this.price,
       shelf: shelf ?? this.shelf,
       unit: unit ?? this.unit,
       currency: currency ?? this.currency,
-      lowStockThreshold:
-          lowStockThreshold ?? this.lowStockThreshold,
+      lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -149,8 +188,7 @@ class ProductModel {
   factory ProductModel.fromJson(Map<String, dynamic> json) =>
       _$ProductModelFromJson(json);
 
-  Map<String, dynamic> toJson() =>
-      _$ProductModelToJson(this);
+  Map<String, dynamic> toJson() => _$ProductModelToJson(this);
 
   /// Convert model into the shape expected by the backend inventory API
   /// (this drops fields that the server doesn’t recognise and adds the

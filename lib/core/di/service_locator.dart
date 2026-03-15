@@ -42,12 +42,6 @@ class ServiceLocator {
   ForecastRemoteDataSource get forecastRemoteDataSource =>
       _forecastRemoteDataSource;
   AlertsRemoteDataSource get alertsRemoteDataSource => _alertsRemoteDataSource;
-
-  // ------- helpers for testing -------
-  /// Overrides the auth remote data source.  Only intended for tests.
-  set authRemoteDataSourceForTest(AuthRemoteDataSource ds) {
-    _authRemoteDataSource = ds;
-  }
 }
 
 final serviceLocator = ServiceLocator();

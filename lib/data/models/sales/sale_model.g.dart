@@ -10,8 +10,8 @@ SaleItemModel _$SaleItemModelFromJson(Map<String, dynamic> json) =>
     SaleItemModel(
       productId: json['product_id'] as String,
       productName: json['product_name'] as String,
-      quantitySold: (json['quantity_sold'] as num).toDouble(),
-      unitPrice: (json['unit_price'] as num).toDouble(),
+      quantitySold: SaleItemModel._decodeDouble(json['quantity_sold']),
+      unitPrice: SaleItemModel._decodeDouble(json['unit_price']),
     );
 
 Map<String, dynamic> _$SaleItemModelToJson(SaleItemModel instance) =>

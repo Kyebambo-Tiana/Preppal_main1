@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
-import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:prepal2/presentation/screens/auth/inventory_details_screen.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   const BusinessDetailsScreen({super.key});
@@ -85,7 +85,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     if (success && mounted && navigateAfter) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
+        MaterialPageRoute(builder: (_) => const InventoryDetailsScreen()),
       );
     } else if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

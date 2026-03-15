@@ -24,6 +24,10 @@ class AddProductUseCase {
       throw Exception('Quantity cannot be negative');
     }
 
+    if (product.price <= 0) {
+      throw Exception('Price must be greater than 0');
+    }
+
     if (product.shelfLife < 0) {
       throw Exception('Shelf life cannot be negative');
     }
@@ -44,6 +48,10 @@ class UpdateProductUseCase {
       throw Exception('Quantity cannot be negative');
     }
 
+    if (product.price <= 0) {
+      throw Exception('Price must be greater than 0');
+    }
+
     return repository.updateProduct(product);
   }
 }
@@ -53,6 +61,5 @@ class DeleteProductUseCase {
 
   DeleteProductUseCase({required this.repository});
 
-  Future<void> call(String productId) =>
-      repository.deleteProduct(productId);
+  Future<void> call(String productId) => repository.deleteProduct(productId);
 }

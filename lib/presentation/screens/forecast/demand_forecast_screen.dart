@@ -2,6 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/forecast_provider.dart';
 
+double _asDouble(dynamic value, {double fallback = 0}) {
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    final trimmed = value.trim();
+    final parsed = double.tryParse(trimmed);
+    if (parsed != null) return parsed;
+
+    switch (trimmed.toLowerCase()) {
+      case 'high':
+        return 90;
+      case 'medium':
+        return 60;
+      case 'low':
+        return 30;
+      default:
+        return fallback;
+    }
+  }
+  return fallback;
+}
+
+int _asInt(dynamic value, {int fallback = 0}) {
+  return _asDouble(value, fallback: fallback.toDouble()).round();
+}
+
 class DemandForecastScreen extends StatefulWidget {
   const DemandForecastScreen({super.key});
 
@@ -21,7 +46,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
 
   int _totalTomorrowUnits(List<Map<String, dynamic>> products) {
     return products.fold<int>(0, (sum, product) {
-      final tomorrow = (product['tomorrow'] as num?)?.toInt() ?? 0;
+      final tomorrow = _asInt(product['tomorrow']);
       return sum + tomorrow;
     });
   }
@@ -29,7 +54,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
   double _averageConfidence(List<Map<String, dynamic>> products) {
     if (products.isEmpty) return 0;
     final total = products.fold<int>(0, (sum, product) {
-      return sum + ((product['confidence'] as num?)?.toInt() ?? 0);
+      return sum + _asInt(product['confidence']);
     });
     return total / products.length;
   }
@@ -38,19 +63,21 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
     if (products.isEmpty) return 0;
     double totalPercent = 0;
     for (final product in products) {
-      final today = (product['today'] as num?)?.toDouble() ?? 0;
-      final tomorrow = (product['tomorrow'] as num?)?.toDouble() ?? 0;
+      final today = _asDouble(product['today']);
+      final tomorrow = _asDouble(product['tomorrow']);
       if (today <= 0) continue;
       totalPercent += ((tomorrow - today) / today) * 100;
     }
     return totalPercent / products.length;
   }
 
-  Map<String, dynamic>? _highestDemandItem(List<Map<String, dynamic>> products) {
+  Map<String, dynamic>? _highestDemandItem(
+    List<Map<String, dynamic>> products,
+  ) {
     if (products.isEmpty) return null;
     return products.reduce((a, b) {
-      final aTomorrow = (a['tomorrow'] as num?)?.toDouble() ?? 0;
-      final bTomorrow = (b['tomorrow'] as num?)?.toDouble() ?? 0;
+      final aTomorrow = _asDouble(a['tomorrow']);
+      final bTomorrow = _asDouble(b['tomorrow']);
       return aTomorrow >= bTomorrow ? a : b;
     });
   }
@@ -58,8 +85,8 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
   Map<String, dynamic>? _lowestDemandItem(List<Map<String, dynamic>> products) {
     if (products.isEmpty) return null;
     return products.reduce((a, b) {
-      final aTomorrow = (a['tomorrow'] as num?)?.toDouble() ?? 0;
-      final bTomorrow = (b['tomorrow'] as num?)?.toDouble() ?? 0;
+      final aTomorrow = _asDouble(a['tomorrow']);
+      final bTomorrow = _asDouble(b['tomorrow']);
       return aTomorrow <= bTomorrow ? a : b;
     });
   }
@@ -68,383 +95,412 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
   Widget build(BuildContext context) {
     return Consumer<ForecastProvider>(
       builder: (context, forecastProvider, _) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFD32F2F),
-        elevation: 0,
-        title: const Text('Demand Forecast', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: forecastProvider.isLoading
-        ? const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD32F2F)),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F5F5),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFFD32F2F),
+            elevation: 0,
+            title: const Text(
+              'Demand Forecast',
+              style: TextStyle(color: Colors.white),
             ),
-          )
-        : forecastProvider.forecastData == null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load forecast',
-                      style: Theme.of(context).textTheme.titleMedium,
+            centerTitle: true,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+            ],
+          ),
+          body: forecastProvider.isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFD32F2F),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      forecastProvider.errorMessage ?? 'Unknown error',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              )
-            : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Header section with subtitle
-                    Container(
-                      color: const Color(0xFFD32F2F),
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '7-days Demand Forecast',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                  ),
+                )
+              : forecastProvider.forecastData == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load forecast',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        forecastProvider.errorMessage ?? 'Unknown error',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Header section with subtitle
+                      Container(
+                        color: const Color(0xFFD32F2F),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '7-days Demand Forecast',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Bar Chart with real data
-                          Container(
-                            height: 220,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return CustomPaint(
-                                        size: Size(constraints.maxWidth, constraints.maxHeight),
-                                        painter: _LineChartPainter(
-                                          data: forecastProvider.sevenDayForecast,
+                            const SizedBox(height: 16),
+
+                            // Bar Chart with real data
+                            Container(
+                              height: 220,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 20,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        return CustomPaint(
+                                          size: Size(
+                                            constraints.maxWidth,
+                                            constraints.maxHeight,
+                                          ),
+                                          painter: _LineChartPainter(
+                                            data: forecastProvider
+                                                .sevenDayForecast,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // X Axis labels
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: List.generate(
+                                      forecastProvider.sevenDayForecast.length,
+                                      (index) => Text(
+                                        forecastProvider
+                                                .sevenDayForecast[index]['day'] ??
+                                            'Day ${index + 1}',
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 10,
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+                            // Legend
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFD32F2F),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Actual Demand',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 24),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFC107),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Predicted Demand',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Forecast Accuracy Card
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFEF9A9A),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Forecast Accuracy',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                // X Axis labels
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: List.generate(
-                                    forecastProvider.sevenDayForecast.length,
-                                    (index) => Text(
-                                      forecastProvider.sevenDayForecast[index]['day'] ?? 'Day ${index + 1}',
-                                      style: const TextStyle(color: Colors.grey, fontSize: 10),
-                                    ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Last 30 days',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${(forecastProvider.forecastAccuracy * 100).toStringAsFixed(1)}%',
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          // Legend
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFD32F2F),
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    'Actual Demand',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 24),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC107),
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    'Predicted Demand',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Forecast Accuracy Card
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEBEE),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFEF9A9A),
-                          width: 1,
+                            const Icon(
+                              Icons.trending_up,
+                              color: Color(0xFFD32F2F),
+                              size: 48,
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Forecast Accuracy',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Last 30 days',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${(forecastProvider.forecastAccuracy * 100).toStringAsFixed(1)}%',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Icon(
-                            Icons.trending_up,
-                            color: Color(0xFFD32F2F),
-                            size: 48,
-                          ),
-                        ],
-                      ),
-                    ),
 
-                    // AI Insight
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFFFCC80),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.lightbulb_outline,
-                            color: Color(0xFFFFC107),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              forecastProvider.aiInsight,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Extra summary details requested in design
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _ForecastMetricCard(
-                              title: 'Total Tomorrow',
-                              value:
-                                  '${_totalTomorrowUnits(forecastProvider.productForecasts)} units',
-                              subtitle: 'Across all items',
-                              icon: Icons.inventory_2_outlined,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _ForecastMetricCard(
-                              title: 'Avg Confidence',
-                              value:
-                                  '${_averageConfidence(forecastProvider.productForecasts).toStringAsFixed(1)}%',
-                              subtitle: 'Model confidence',
-                              icon: Icons.verified_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _ForecastMetricCard(
-                              title: 'Avg Demand Change',
-                              value:
-                                  '${_averageDemandChange(forecastProvider.productForecasts).toStringAsFixed(1)}%',
-                              subtitle: 'Tomorrow vs today',
-                              icon: Icons.timeline,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _ForecastMetricCard(
-                              title: 'Top Demand Item',
-                              value:
-                                  '${(_highestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')}',
-                              subtitle:
-                                  '${((_highestDemandItem(forecastProvider.productForecasts)?['tomorrow'] as num?)?.toInt() ?? 0)} units tomorrow',
-                              icon: Icons.local_fire_department_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Container(
-                        width: double.infinity,
+                      // AI Insight
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFECECEC)),
+                          color: const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFFFCC80),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.arrow_downward,
-                              size: 18,
-                              color: Color(0xFF5E5E5E),
+                              Icons.lightbulb_outline,
+                              color: Color(0xFFFFC107),
+                              size: 20,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Lowest expected demand: ${(_lowestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')} (${((_lowestDemandItem(forecastProvider.productForecasts)?['tomorrow'] as num?)?.toInt() ?? 0)} units)',
+                                forecastProvider.aiInsight,
                                 style: const TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF5E5E5E),
+                                  color: Colors.black87,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 14),
 
-                    // Per-item forecasts
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Demand forecast per item',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                      // Extra summary details requested in design
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _ForecastMetricCard(
+                                title: 'Total Tomorrow',
+                                value:
+                                    '${_totalTomorrowUnits(forecastProvider.productForecasts)} units',
+                                subtitle: 'Across all items',
+                                icon: Icons.inventory_2_outlined,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          forecastProvider.productForecasts.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 24),
-                                    child: Text(
-                                      'No product forecasts available',
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: forecastProvider.productForecasts.length,
-                                  itemBuilder: (context, index) {
-                                    final product = forecastProvider.productForecasts[index];
-                                    return _ProductForecastCard(product: product);
-                                  },
-                                ),
-                        ],
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _ForecastMetricCard(
+                                title: 'Avg Confidence',
+                                value:
+                                    '${_averageConfidence(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                                subtitle: 'Model confidence',
+                                icon: Icons.verified_outlined,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 10),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _ForecastMetricCard(
+                                title: 'Avg Demand Change',
+                                value:
+                                    '${_averageDemandChange(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                                subtitle: 'Tomorrow vs today',
+                                icon: Icons.timeline,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _ForecastMetricCard(
+                                title: 'Top Demand Item',
+                                value:
+                                    '${(_highestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')}',
+                                subtitle:
+                                    '${_asInt(_highestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units tomorrow',
+                                icon: Icons.local_fire_department_outlined,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFECECEC)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.arrow_downward,
+                                size: 18,
+                                color: Color(0xFF5E5E5E),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Lowest expected demand: ${(_lowestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')} (${_asInt(_lowestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF5E5E5E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Per-item forecasts
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Demand forecast per item',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            forecastProvider.productForecasts.isEmpty
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 24,
+                                      ),
+                                      child: Text(
+                                        'No product forecasts available',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: forecastProvider
+                                        .productForecasts
+                                        .length,
+                                    itemBuilder: (context, index) {
+                                      final product = forecastProvider
+                                          .productForecasts[index];
+                                      return _ProductForecastCard(
+                                        product: product,
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
-    );
+        );
       },
     );
   }
@@ -501,10 +557,7 @@ class _ForecastMetricCard extends StatelessWidget {
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
           ),
         ],
       ),
@@ -520,13 +573,17 @@ class _ProductForecastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Extract data from API response with safe defaults
-    final String name = product['name'] ?? 'Unknown Product';
-    final int confidence = product['confidence'] ?? 0;
-    final int today = product['today']?.toInt() ?? 0;
-    final int tomorrow = product['tomorrow']?.toInt() ?? 0;
-    
+    final String name =
+        (product['name'] ?? product['item_name'] ?? 'Unknown Product')
+            .toString();
+    final int confidence = _asInt(product['confidence']);
+    final int today = _asInt(product['today']);
+    final int tomorrow = _asInt(product['tomorrow']);
+
     // Calculate percentage change
-    final double changePercent = today > 0 ? ((tomorrow - today) / today * 100) : 0;
+    final double changePercent = today > 0
+        ? ((tomorrow - today) / today * 100)
+        : 0;
     final bool isIncreasing = changePercent >= 0;
 
     double todayPercent = (today / 100).clamp(0.0, 1.0);
@@ -539,10 +596,7 @@ class _ProductForecastCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
         ],
       ),
       child: Column(
@@ -562,7 +616,10 @@ class _ProductForecastCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(12),
@@ -580,7 +637,9 @@ class _ProductForecastCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isIncreasing ? const Color(0xFFC8E6C9) : const Color(0xFFFFCDD2),
+                  color: isIncreasing
+                      ? const Color(0xFFC8E6C9)
+                      : const Color(0xFFFFCDD2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -588,7 +647,9 @@ class _ProductForecastCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: isIncreasing ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                    color: isIncreasing
+                        ? const Color(0xFF2E7D32)
+                        : const Color(0xFFC62828),
                   ),
                 ),
               ),
@@ -629,10 +690,7 @@ class _ProductForecastCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '$today units',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -674,10 +732,7 @@ class _ProductForecastCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '$tomorrow units',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -727,7 +782,7 @@ class _LineChartPainter extends CustomPainter {
     final paintDots1 = Paint()
       ..color = const Color(0xFFD32F2F)
       ..style = PaintingStyle.fill;
-      
+
     final paintDots2 = Paint()
       ..color = const Color(0xFFFFC107)
       ..style = PaintingStyle.fill;
@@ -738,14 +793,14 @@ class _LineChartPainter extends CustomPainter {
     // Find max values for scaling
     double maxActual = 100;
     double maxPredicted = 100;
-    
+
     for (var point in data) {
-      final actual = (point['actual'] ?? 0).toDouble();
-      final predicted = (point['predicted'] ?? 0).toDouble();
+      final actual = _asDouble(point['actual']);
+      final predicted = _asDouble(point['predicted']);
       if (actual > maxActual) maxActual = actual;
       if (predicted > maxPredicted) maxPredicted = predicted;
     }
-    
+
     // Add padding to max values
     maxActual = maxActual * 1.1;
     maxPredicted = maxPredicted * 1.1;
@@ -755,13 +810,13 @@ class _LineChartPainter extends CustomPainter {
     final List<Offset> points2 = [];
 
     for (int i = 0; i < data.length; i++) {
-      final actual = (data[i]['actual'] ?? 0).toDouble();
-      final predicted = (data[i]['predicted'] ?? 0).toDouble();
-      
+      final actual = _asDouble(data[i]['actual']);
+      final predicted = _asDouble(data[i]['predicted']);
+
       final x = (i / (data.length - 1)) * size.width;
       final y1 = size.height - (actual / maxActual) * size.height;
       final y2 = size.height - (predicted / maxPredicted) * size.height;
-      
+
       points1.add(Offset(x, y1));
       points2.add(Offset(x, y2));
     }
@@ -780,7 +835,7 @@ class _LineChartPainter extends CustomPainter {
         );
       }
     }
-    
+
     if (points2.isNotEmpty) {
       path2.moveTo(points2[0].dx, points2[0].dy);
       for (int i = 1; i < points2.length; i++) {
@@ -803,7 +858,7 @@ class _LineChartPainter extends CustomPainter {
       canvas.drawCircle(point, 4, paintDots1);
       canvas.drawCircle(point, 2, Paint()..color = Colors.white);
     }
-    
+
     // Draw dots for predicted demand
     for (var point in points2) {
       canvas.drawCircle(point, 4, paintDots2);
@@ -814,7 +869,7 @@ class _LineChartPainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = Colors.grey.withValues(alpha: 0.2)
       ..strokeWidth = 1;
-      
+
     final int hLines = 4;
     for (int i = 0; i <= hLines; i++) {
       final y = size.height * (i / hLines);
