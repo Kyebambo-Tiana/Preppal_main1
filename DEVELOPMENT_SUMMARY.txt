@@ -1,311 +1,161 @@
 =======================================
 PREPPAL MOBILE APP - DEVELOPMENT SUMMARY
+Last Updated: March 2026
 =======================================
 
-COMPLETED WORK (From Start to Present)
-======================================
+===========================================
+CURRENT STATUS: FULLY WIRED TO BACKEND
+===========================================
 
-1. UI SCREENS CREATED
-   ✅ InventoryListScreen - Product list with search, stats, pagination
-   ✅ DemandForecastScreen - Chart-based forecasts with AI insights
-   ✅ AlertsScreen - Filterable alerts dashboard
-   ✅ All 3 screens integrated into main dashboard navigation
-   ✅ Login Screen (existing) - Already using Provider correctly
-   ✅ Signup Screen (existing) - Updated for backend integration
-   ✅ Business Details Screen (existing) - Updated for backend integration
+All screens are connected to the live backend API.
+No mock, fake, or demo datasources remain in the codebase.
+All local state persists across logout and full app restarts.
 
-2. BACKEND INFRASTRUCTURE SETUP
-   ✅ API Constants File (api_constants.dart)
-      - Base URL: https://prepal-backend-p214-demosites.com
-      - All 14 endpoint URLs documented
-      - Timeout configuration (30 seconds)
-      - Authentication endpoints
-      - Business endpoints
-      - Sales endpoints
+Backend APIs
+  Main backend:  https://preppal-backend-px1d.onrender.com
+  ML forecast:   https://preppal-2mb4.onrender.com/api/predict
 
-   ✅ API Client (api_client.dart)
-      - HTTP wrapper for all requests
-      - Token management system
-      - SharedPreferences integration
-      - Automatic Bearer token injection in headers
-      - Request/response logging
-      - Error handling
-      - Methods: get(), post(), put(), delete()
-      - setAuthToken(), clearAuthToken(), init()
+=========================================
+COMPLETED FEATURES
+=========================================
 
-   ✅ Remote Datasources (3 files created)
-      - auth_remote_datasource.dart (4 methods)
-         * register() - User signup
-         * login() - User login
-         * forgotPassword() - Password reset request
-         * resetPassword() - Complete password reset
-      
-      - business_remote_datasource.dart (5 methods)
-         * registerBusiness() - Register business details
-         * getBusiness() - Fetch business info
-         * updateBusiness() - Update business info
-         * uploadBusinessLogo() - Logo upload
-         * deleteBusiness() - Delete business account
-      
-      - daily_sales_remote_datasource.dart (5 methods)
-         * getDailySales() - Fetch daily sales data
-         * recordSale() - Log a new sale
-         * getSalesReport() - Generate sales report
-         * getSalesByCategory() - Filter sales by category
-         * exportSalesData() - Export sales to CSV/PDF
+1. AUTHENTICATION AND SESSION
+   - Login screen calls /api/v1/auth/login; JWT decoded for user ID, email, role
+   - Signup screen calls /api/v1/auth/register then auto-logs in
+   - Splash-based session restore - authenticated users skip the welcome screen
+   - Auth token persisted in SharedPreferences; verified on every cold start
+   - Expired-token detection (JWT exp claim) auto-clears session
+   - Logout clears auth token and in-memory state but keeps local data caches
+   - Delete account clears all local user caches and auth token
 
-3. DEPENDENCY INJECTION & INITIALIZATION
-   ✅ Service Locator (service_locator.dart)
-      - Custom singleton pattern (no external libraries)
-      - Proper initialization of all datasources
-      - ApiClient setup with async init
-      - Centralized access point: serviceLocator.authRemoteDataSource, etc.
-      - Called in main.dart via setupServiceLocator()
+2. BUSINESS DETAILS
+   - BusinessDetailsScreen prefills from saved business on every open
+   - BusinessProvider creates or updates business via /api/v1/business
+   - Business list cached locally per signed-in user (SharedPreferences)
+   - Cache rehydrates immediately after logout/login - no re-entry required
+   - Empty backend 404 does NOT overwrite valid local cache
+   - ApiClient businessId and businessType updated whenever cache hydrates
+   - Delete account clears user-scoped business cache
+   - BusinessType dropdown: Cafe, Restaurant, Bakery, Catering, Food Truck, Home Kitchen, Others
 
-   ✅ Main.dart Integration
-      - setupServiceLocator() called before runApp()
-      - SharedPreferences initialized
-      - BusinessProvider registered in MultiProvider
-      - All providers accessible throughout app
+3. INVENTORY ONBOARDING (InventoryDetailsScreen, post-Business Details)
+   - New onboarding screen after Business Details
+   - Fields: product name, type dropdown, production date, quantity, unit
+   - Product types: Pastries, Beverages, Dairy, Snacks, Produce, Bakery, Meat, Spices, Frozen, Others
+   - Units: KG, G, L, ML, PCS, DOZEN, OTHERS
+   - Add Another queues products locally before batch submit
+   - Save and Submit POSTs each product to /api/v1/inventory with businessId
+   - Skip for now bypasses onboarding and goes to dashboard
+   - Completion flag and draft persisted per user in SharedPreferences
+   - Draft restored on every open; completion flag skips screen on next visit
+   - Default price of 1.0 NGN used (backend requires price > 0; UI captures core fields only)
+   - Delete account: clears all user-scoped caches, onboarding draft, and profile image
 
-4. STATE MANAGEMENT
-   ✅ AuthProvider (auth_provider.dart)
-      - Status enum: initial, loading, authenticated, unauthenticated, error
-      - Methods:
-         * login(email, password) - Calls backend login
-         * signup(username, email, password) - Calls backend register
-         * logout() - Clears token and user data
-         * clearError() - UI error dismissal
-      - Auto-saves token to ApiClient
-      - Proper error messages displayed to users
-      - Loading states for all buttons
+4. INVENTORY MANAGEMENT (InventoryListScreen / AddProductScreen / ProductDetailScreen)
+   - Full CRUD: add, edit, delete products via /api/v1/inventory
+   - Product list cached per user+business in SharedPreferences
+   - Cache hydrates before backend fetch so list is instant on re-open
+   - Backend empty response does NOT overwrite existing local product cache
+   - Low-stock, expiring-soon, and expired alerts computed from local inventory
+   - Price validator enforces > 0 to avoid backend 422 errors
 
-   ✅ BusinessProvider (business_provider.dart) - NEW
-      - Status enum: initial, loading, registered, error, success
-      - registerBusiness() method - Calls backend with form data
-      - Proper error handling and display
-      - Loading states during submission
+5. DAILY SALES REPORT (DailySalesReportScreen)
+   - Submits sales items via /api/v1/daily-sales with businessId
+   - Sales list cached per user+business (DailySalesProvider)
+   - Cache hydrates before backend fetch; network error falls back to cache
+   - Add/update/delete each write-through to cache immediately
+   - Products populated from live inventory for dropdown selection
 
-   ✅ InventoryProvider (existing)
-      - Integrated with remote inventory datasource
-      - Supports backend CRUD operations
+6. DASHBOARD (DashboardScreen)
+   - Today and yesterday revenue loaded from /api/v1/daily-sales
+   - Revenue summary cached per user+business (DashboardProvider)
+   - Waste risk levels and daily alerts computed from inventory state
+   - Smart recommendations derived from stock levels and expiry dates
+   - Profile picture saved to SharedPreferences (base64)
+   - Dashboard settings (notifications, compact mode) persisted locally
 
-5. SCREENS WIRED TO BACKEND
-   ✅ Login Screen
-      - Uses context.read<AuthProvider>()
-      - Calls provider.login() on button press
-      - Auto-navigates to BusinessDetailsScreen on success
-      - Shows error messages from provider
-      - Loading spinner during auth
+7. DEMAND FORECAST (DemandForecastScreen)
+   - Calls ML API at https://preppal-2mb4.onrender.com/api/predict
+   - Sends positive price to avoid ML 422 errors
+   - Handles mixed string/num/qualitative backend responses safely
+   - Partial failure tolerant: empty forecast renders gracefully
 
-   ✅ Signup Screen  
-      - Uses context.read<AuthProvider>()
-      - Validates password match
-      - Calls provider.signup()
-      - Shows API error messages
-      - Navigates to BusinessDetailsScreen on success
-      - Loading state on Next button
+8. ALERTS (AlertsScreen)
+   - Backend alerts via /api/v1/alerts with businessId
+   - Treats 404 / empty / non-JSON responses as no-data (not error)
 
-   ✅ Business Details Screen
-      - Uses context.watch<BusinessProvider>()
-      - Form validation on all required fields
-      - Save button - Saves without navigation
-      - Next button - Saves and navigates to MainShell (Dashboard)
-      - Error messages displayed
-      - Loading spinners on both buttons
-      - Progress indicator (4-step) updated to show progress
+9. PERSISTENCE (survives logout, app close, device restart)
+   - All provider caches scoped per signed-in user (userId + businessId key)
+   - Cold start: all providers hydrate from cache before fetching from backend
+   - Backend empty/error responses never overwrite valid local cache
+   - No data re-entry required after logout, app close, or device restart
 
-6. TESTING & DOCUMENTATION
-   ✅ Created BACKEND_INTEGRATION_READY.txt
-      - Complete endpoint reference
-      - Expected response formats (JSON)
-      - All 4 auth endpoints documented
-      - Ready for backend developer testing
+=========================================
+REMAINING / FUTURE WORK
+=========================================
 
-=======================================
-STILL TODO (For Mobile Developer Team)
-=======================================
-
-SCREENS NEEDING BACKEND CONNECTION (Priority)
-❌ Dashboard/MainShell
-   - Needs to fetch user profile on load
-   - Wire InventoryProvider to real backend
-   - Wire up inventory operations (add, edit, delete products)
-   - Real-time inventory sync
-
-❌ Inventory Management Screens
-   - Product detail screen backend integration
-   - Add/Edit product screens POST/PUT to backend
-   - Image upload for products
-   - Delete product confirmation with backend call
-   - Search/filter with real backend data
-
-❌ Demand Forecast Screen
-   - Connect chart data to backend API
-   - Implement date range filtering
-   - Improve forecast granularity and historical comparison
-
-❌ Alerts Screen
-   - Fetch real alerts from backend
-   - Filter/sort alerts with backend
-   - Mark alerts as read (API call)
-   - Delete alerts (API call)
-
-FEATURES TO IMPLEMENT
-❌ Profile/Settings Screen
-   - Get user profile data
-   - Edit user information
-   - Change password functionality
-   - Logout with token clear
-
-❌ Sales Management
-   - Create SalesProvider
-   - Record sale endpoint integration
-   - Sales history view
-   - Sales report generation
-   - Export functionality
-
-❌ Business Management
-   - Edit business details screen
-   - Logo/image upload
-   - Business statistics dashboard
-   - View business analytics
-
-ERROR HANDLING & UX
-❌ Network Error Handling
-   - Offline mode detection
-   - Retry mechanisms for failed requests
-   - Better error messages for specific API errors
-   - Timeout error handling
-
-❌ Loading States
-   - Global loading overlay for critical operations
-   - Skeleton loaders for list screens
-   - Pull-to-refresh functionality
-   - Pagination for long lists
+FEATURES NOT YET IMPLEMENTED
+  - Profile / Settings screen (view and edit user account details)
+  - Change password flow
+  - Push notifications (backend-driven, real-time alerts)
+  - Pull-to-refresh on all list screens
+  - Pagination for large inventory or sales lists
+  - Business logo image upload
+  - Multiple-business support (UI to switch between businesses)
+  - Export sales data to CSV / PDF
 
 TESTING
-❌ Unit Tests
-   - Test all providers
-   - Test datasources
-   - Test API client error handling
-   - Add deterministic API stubs for repeatable test runs
+  - Unit tests for all providers
+  - Unit tests for datasources with API stubs
+  - Widget tests for key screens (login, business details, inventory add)
+  - Integration test for full onboarding flow
 
-❌ Integration Tests
-   - Test full auth flow end-to-end
-   - Test business registration flow
-   - Test data persistence
+PERFORMANCE AND SECURITY
+  - Secure token storage (flutter_secure_storage) instead of plain SharedPreferences
+  - Cache expiration logic (stale-after-X-hours eviction)
+  - SSL certificate pinning
+  - Input sanitisation on all free-text form fields
 
-❌ Manual Testing
-   - Test with real backend server
-   - Test network errors and recovery
-   - Test token refresh on expiry
-   - Cross-platform testing (Android/iOS)
-
-OPTIMIZATION
-❌ Caching Strategy
-   - Implement local data caching
-   - Cache expiration logic
-   - Sync cached data with backend
-
-❌ Performance
-   - Image optimization
-   - List pagination
-   - Lazy loading for screens
-   - Memory management
-
-❌ Security
-   - SSL certificate pinning
-   - Secure token storage (not just SharedPreferences)
-   - Input validation on all forms
-   - XSS/CSRF protection
-
-DOCUMENTATION
-❌ Code Documentation
-   - Add JSDoc comments to all providers
-   - Document endpoint requirements
-   - Create development guide
-   - API integration guide
-
-❌ Release Preparation
-   - Build APK/IPA for testing
-   - Test on physical devices
-   - App store submission prep
-   - Version management
-
-=======================================
+=========================================
 SUMMARY STATISTICS
-=======================================
+=========================================
 
-COMPLETED:
-- 3 New Screens (Inventory, Forecast, Alerts)
-- 3 Auth Screens Connected (Login, Signup, Business)
-- 3 Remote Datasources
-- 1 Api Client
-- 1 Service Locator
-- 2 Providers (Auth, Business)
-- 1 Inventory Provider (existing)
-- 14 API Endpoints Configured
-- ~500+ Lines of Backend Integration Code
+Screens built and fully wired:
+  WelcomeScreen, SplashScreen (session-based routing),
+  LoginScreen, SignupScreen, BusinessDetailsScreen,
+  InventoryDetailsScreen (onboarding), MainShell (bottom nav host),
+  DashboardScreen, InventoryListScreen, AddProductScreen,
+  ProductDetailScreen, DemandForecastScreen, AlertsScreen,
+  DailySalesReportScreen
 
-REMAINING:
-- 8-12 Additional Screens
-- 3+ New Providers (Sales, Dashboard, Settings)
-- Error Handling & Resilience
-- Testing (Unit, Integration, Manual)
-- Performance Optimization
-- Security Hardening
-- Documentation
+Providers (7):
+  AuthProvider, BusinessProvider, InventoryProvider,
+  DailySalesProvider, DashboardProvider, ForecastProvider, AlertsProvider
 
-=======================================
-NEXT IMMEDIATE STEPS FOR YOUR TEAM
-=======================================
+Remote datasources (6):
+  Auth, Business, Inventory, DailySales, Forecast, Alerts
 
-1. User logs in → Test with backend
-   - Verify token is stored
-   - Check token in API headers on next requests
+Persistent cache stores (5):
+  business, inventory, daily sales, dashboard revenue, onboarding draft
 
-2. Create Dashboard/MainShell backend integration
-   - Fetch user business data
-   - Display real inventory list
-   - Wire InventoryProvider to real endpoints
+=========================================
+ARCHITECTURE
+=========================================
 
-3. Implement Sales module
-   - Create SalesProvider
-   - Wire sales screens to backend
-
-4. Add error handling & offline support
-   - Network detection
-   - Retry logic
-   - Better error messages
-
-5. Testing
-   - Manual end-to-end testing
-   - Fix any backend response mismatches
-   - Optimize performance
-
-=======================================
-KEY FILES CREATED/MODIFIED
-=======================================
-
-NEW FILES:
-- lib/core/network/api_constants.dart
-- lib/core/network/api_client.dart
-- lib/core/di/service_locator.dart
-- lib/data/datasources/auth/auth_remote_datasource.dart
-- lib/data/datasources/business/business_remote_datasource.dart
-- lib/data/datasources/sales/daily_sales_remote_datasource.dart
-- lib/presentation/providers/business_provider.dart
-- lib/presentation/screens/inventory/inventory_list_screen.dart
-- lib/presentation/screens/inventory/demand_forecast_screen.dart
-- lib/presentation/screens/inventory/alerts_screen.dart
-- BACKEND_INTEGRATION_READY.txt
-
-MODIFIED FILES:
-- lib/main.dart (added setupServiceLocator() and BusinessProvider)
-- lib/presentation/providers/auth_provider.dart (backend integration)
-- lib/presentation/screens/auth/login_screen.dart (verified ✓ working)
-- lib/presentation/screens/auth/signup_screen.dart (error handling added)
-- lib/presentation/screens/auth/business_details_screen.dart (backend integration)
-
-=======================================
+lib/
+  core/
+    di/          ServiceLocator (DI container, no external package)
+    network/     ApiClient, ApiConstants
+    errors/      AppException types
+    utills/      Shared utilities
+  data/
+    datasources/ Remote datasource implementations (6 files)
+    models/      ProductModel, SaleModel, UserModel, BusinessModel
+    repositories/ AuthRepositoryImpl, InventoryRepositoryImpl
+  domain/
+    repositories/ AuthRepository, InventoryRepository (abstract)
+    usecases/    GetAllProducts, AddProduct, UpdateProduct, DeleteProduct
+    usercases/   LoginUseCase, SignupUseCase
+  presentation/
+    providers/   7 ChangeNotifier providers
+    screens/     All 14 screens

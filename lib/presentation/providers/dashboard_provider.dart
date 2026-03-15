@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:prepal2/core/di/service_locator.dart';
 import 'package:prepal2/data/models/inventory/product_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardAlert {
   final String productName;
@@ -23,6 +26,9 @@ class DashboardRecommendation {
 }
 
 class DashboardProvider extends ChangeNotifier {
+  static const String _kRevenueCache = 'dashboard_revenue_cache';
+  static const String _kAuthUserKey = 'auth_user';
+
   List<ProductModel> _products = [];
   String _inventorySignature = '';
   double _todayRevenue = 0;
@@ -32,6 +38,91 @@ class DashboardProvider extends ChangeNotifier {
 
   bool get isLoadingSales => _isLoadingSales;
   String? get salesError => _salesError;
+
+  String _scopedKey(String suffix) => '${_kRevenueCache}_$suffix';
+
+  Future<String?> _cacheScope({
+    SharedPreferences? prefs,
+    String? businessIdOverride,
+  }) async {
+    final preferences = prefs ?? await SharedPreferences.getInstance();
+
+    String? userId;
+    final rawUser = preferences.getString(_kAuthUserKey);
+    if (rawUser != null && rawUser.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawUser);
+        if (decoded is Map<String, dynamic>) {
+          final id = decoded['id'] as String?;
+          if (id != null && id.trim().isNotEmpty) {
+            userId = id.trim();
+          }
+        }
+      } catch (_) {
+        // Ignore malformed cached auth payloads.
+      }
+    }
+
+    final businessId =
+        businessIdOverride ??
+        serviceLocator.apiClient.getBusinessId() ??
+        preferences.getString('business_id');
+
+    if (userId == null && (businessId == null || businessId.isEmpty)) {
+      return null;
+    }
+
+    return '${userId ?? 'anonymous'}_${businessId ?? 'no_business'}';
+  }
+
+  Future<void> _hydrateSalesCache({String? businessIdOverride}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final scope = await _cacheScope(
+        prefs: prefs,
+        businessIdOverride: businessIdOverride,
+      );
+      final raw = scope == null
+          ? prefs.getString(_kRevenueCache)
+          : prefs.getString(_scopedKey(scope)) ??
+                prefs.getString(_kRevenueCache);
+      if (raw == null || raw.isEmpty) return;
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return;
+
+      _todayRevenue = _asDouble(decoded['todayRevenue']);
+      _yesterdayRevenue = _asDouble(decoded['yesterdayRevenue']);
+      notifyListeners();
+    } catch (_) {
+      // Ignore malformed local cache and continue with remote fetches.
+    }
+  }
+
+  Future<void> _saveSalesCache({String? businessIdOverride}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final scope = await _cacheScope(
+      prefs: prefs,
+      businessIdOverride: businessIdOverride,
+    );
+    final key = scope == null ? _kRevenueCache : _scopedKey(scope);
+    await prefs.setString(
+      key,
+      jsonEncode({
+        'todayRevenue': _todayRevenue,
+        'yesterdayRevenue': _yesterdayRevenue,
+      }),
+    );
+  }
+
+  Future<void> clearPersistedCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final scope = await _cacheScope(prefs: prefs);
+    if (scope != null) {
+      await prefs.remove(_scopedKey(scope));
+    }
+    await prefs.remove(_kRevenueCache);
+  }
 
   //Call this whenever inventory loads/changes
   void syncInventory(List<ProductModel> products) {
@@ -53,6 +144,10 @@ class DashboardProvider extends ChangeNotifier {
 
   //Load today's & yesterday's sales from API
   Future<void> loadSales(String businessId) async {
+    if (_todayRevenue == 0 && _yesterdayRevenue == 0) {
+      await _hydrateSalesCache(businessIdOverride: businessId);
+    }
+
     _isLoadingSales = true;
     _salesError = null;
     notifyListeners();
@@ -95,6 +190,7 @@ class DashboardProvider extends ChangeNotifier {
 
       _todayRevenue = todayTotal;
       _yesterdayRevenue = yesterdayTotal;
+      await _saveSalesCache(businessIdOverride: businessId);
     } catch (e) {
       _salesError = e.toString().replaceAll('Exception: ', '');
     }

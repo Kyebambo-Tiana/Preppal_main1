@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/auth/inventory_details_screen.dart';
+import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   const BusinessDetailsScreen({super.key});
@@ -11,6 +15,10 @@ class BusinessDetailsScreen extends StatefulWidget {
 }
 
 class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
+  static const String _kInventoryOnboardingCompleted =
+      'inventory_onboarding_completed';
+  static const String _kAuthUserKey = 'auth_user';
+
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();
   final _locationController =
@@ -31,6 +39,25 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   ];
 
   bool _formPrefilled = false;
+
+  String _scopedPrefsKey(String baseKey, SharedPreferences prefs) {
+    final rawUser = prefs.getString(_kAuthUserKey);
+    if (rawUser == null || rawUser.isEmpty) return baseKey;
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic>) {
+        final userId = decoded['id'] as String?;
+        if (userId != null && userId.trim().isNotEmpty) {
+          return '${baseKey}_${userId.trim()}';
+        }
+      }
+    } catch (_) {
+      // Ignore malformed cached auth payloads.
+    }
+
+    return baseKey;
+  }
 
   @override
   void initState() {
@@ -83,9 +110,23 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     );
 
     if (success && mounted && navigateAfter) {
+      final prefs = await SharedPreferences.getInstance();
+      final completedKey = _scopedPrefsKey(
+        _kInventoryOnboardingCompleted,
+        prefs,
+      );
+      final inventoryCompleted =
+          prefs.getBool(completedKey) ??
+          prefs.getBool(_kInventoryOnboardingCompleted) ??
+          false;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const InventoryDetailsScreen()),
+        MaterialPageRoute(
+          builder: (_) => inventoryCompleted
+              ? const MainShell()
+              : const InventoryDetailsScreen(),
+        ),
       );
     } else if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

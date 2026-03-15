@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/data/models/inventory/product_model.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InventoryDetailsScreen extends StatefulWidget {
   const InventoryDetailsScreen({super.key});
@@ -14,6 +17,14 @@ class InventoryDetailsScreen extends StatefulWidget {
 class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   static const double _defaultOnboardingPrice = 1.0;
   static const int _defaultShelfLifeHours = 168;
+  static const String _kInventoryOnboardingCompleted =
+      'inventory_onboarding_completed';
+  static const String _kDraftName = 'inventory_draft_name';
+  static const String _kDraftQuantity = 'inventory_draft_quantity';
+  static const String _kDraftType = 'inventory_draft_type';
+  static const String _kDraftUnit = 'inventory_draft_unit';
+  static const String _kDraftDate = 'inventory_draft_date';
+  static const String _kAuthUserKey = 'auth_user';
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -50,10 +61,104 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(_restoreDraft);
+  }
+
+  String _scopedPrefsKey(String baseKey, SharedPreferences prefs) {
+    final rawUser = prefs.getString(_kAuthUserKey);
+    if (rawUser == null || rawUser.isEmpty) return baseKey;
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic>) {
+        final userId = decoded['id'] as String?;
+        if (userId != null && userId.trim().isNotEmpty) {
+          return '${baseKey}_${userId.trim()}';
+        }
+      }
+    } catch (_) {
+      // Ignore malformed cached auth payloads.
+    }
+
+    return baseKey;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _quantityController.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nameKey = _scopedPrefsKey(_kDraftName, prefs);
+    final quantityKey = _scopedPrefsKey(_kDraftQuantity, prefs);
+    final typeKey = _scopedPrefsKey(_kDraftType, prefs);
+    final unitKey = _scopedPrefsKey(_kDraftUnit, prefs);
+    final dateKey = _scopedPrefsKey(_kDraftDate, prefs);
+
+    final cachedName =
+        prefs.getString(nameKey) ?? prefs.getString(_kDraftName) ?? '';
+    final cachedQuantity =
+        prefs.getString(quantityKey) ?? prefs.getString(_kDraftQuantity) ?? '';
+    final cachedType = prefs.getString(typeKey) ?? prefs.getString(_kDraftType);
+    final cachedUnit = prefs.getString(unitKey) ?? prefs.getString(_kDraftUnit);
+    final cachedDate = prefs.getString(dateKey) ?? prefs.getString(_kDraftDate);
+
+    _nameController.text = cachedName;
+    _quantityController.text = cachedQuantity;
+
+    if (cachedType != null && _productTypes.contains(cachedType)) {
+      _selectedTypeLabel = cachedType;
+    }
+    if (cachedUnit != null && _unitLabels.contains(cachedUnit)) {
+      _selectedUnitLabel = cachedUnit;
+    }
+    if (cachedDate != null) {
+      final parsedDate = DateTime.tryParse(cachedDate);
+      if (parsedDate != null) {
+        _productionDate = parsedDate;
+      }
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _persistDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftName, prefs),
+      _nameController.text.trim(),
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftQuantity, prefs),
+      _quantityController.text.trim(),
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftType, prefs),
+      _selectedTypeLabel,
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftUnit, prefs),
+      _selectedUnitLabel,
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftDate, prefs),
+      _productionDate.toIso8601String(),
+    );
+  }
+
+  Future<void> _markOnboardingCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      _scopedPrefsKey(_kInventoryOnboardingCompleted, prefs),
+      true,
+    );
   }
 
   ProductCategory _categoryFromLabel(String label) {
@@ -135,6 +240,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     _productionDate = DateTime.now();
     _selectedTypeLabel = 'Pastries';
     _selectedUnitLabel = 'PCS';
+    _persistDraft();
   }
 
   Future<void> _addAnotherProduct() async {
@@ -167,6 +273,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       _submitting = false;
       if (ok) {
         _resetCurrentForm();
+        _markOnboardingCompleted();
       }
     });
 
@@ -237,6 +344,8 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       return;
     }
 
+    await _markOnboardingCompleted();
+
     await inventory.loadProducts();
 
     if (!mounted) return;
@@ -249,6 +358,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   }
 
   void _skipToDashboard() {
+    _markOnboardingCompleted();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const MainShell()),
@@ -310,6 +420,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _nameController,
+                  onChanged: (_) => _persistDraft(),
                   decoration: _inputDecoration('Mega meat pie'),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -342,6 +453,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() => _selectedTypeLabel = v);
+                                _persistDraft();
                               }
                             },
                           ),
@@ -356,7 +468,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                           _label('Production date'),
                           const SizedBox(height: 8),
                           InkWell(
-                            onTap: _pickDate,
+                            onTap: () async {
+                              await _pickDate();
+                              await _persistDraft();
+                            },
                             child: InputDecorator(
                               decoration: _inputDecoration(''),
                               child: Text(
@@ -382,6 +497,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _quantityController,
+                            onChanged: (_) => _persistDraft(),
                             keyboardType: TextInputType.number,
                             decoration: _inputDecoration('24'),
                             validator: (v) {
@@ -420,6 +536,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() => _selectedUnitLabel = v);
+                                _persistDraft();
                               }
                             },
                           ),

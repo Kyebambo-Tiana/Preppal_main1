@@ -37,6 +37,7 @@ class BusinessModel {
 class BusinessProvider extends ChangeNotifier {
   static const String _kCachedBusinesses = 'cached_businesses';
   static const String _kCachedCurrentBusinessId = 'cached_current_business_id';
+  static const String _kAuthUserKey = 'auth_user';
 
   BusinessStatus _status = BusinessStatus.initial;
   String? _errorMessage;
@@ -54,10 +55,51 @@ class BusinessProvider extends ChangeNotifier {
   List<BusinessModel> get businesses => _businesses;
   bool get hasBusiness => _currentBusiness != null;
 
+  String _scopedKey(String baseKey, String userId) => '${baseKey}_$userId';
+
+  Future<String?> _currentUserId([SharedPreferences? prefs]) async {
+    final preferences = prefs ?? await SharedPreferences.getInstance();
+    final rawUser = preferences.getString(_kAuthUserKey);
+    if (rawUser == null || rawUser.isEmpty) return null;
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic>) {
+        final id = decoded['id'] as String?;
+        if (id != null && id.trim().isNotEmpty) {
+          return id.trim();
+        }
+      }
+    } catch (_) {
+      // Ignore malformed cached auth payloads.
+    }
+
+    return null;
+  }
+
+  Future<void> _syncCurrentBusinessToApiClient() async {
+    final business = _currentBusiness;
+    if (business == null || business.id.isEmpty) return;
+
+    await serviceLocator.apiClient.setBusinessId(business.id);
+    if (business.businessType.trim().isNotEmpty) {
+      await serviceLocator.apiClient.setBusinessType(business.businessType);
+    }
+  }
+
   Future<void> _hydrateFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kCachedBusinesses);
+      final userId = await _currentUserId(prefs);
+      final businessesKey = userId == null
+          ? _kCachedBusinesses
+          : _scopedKey(_kCachedBusinesses, userId);
+      final currentBusinessKey = userId == null
+          ? _kCachedCurrentBusinessId
+          : _scopedKey(_kCachedCurrentBusinessId, userId);
+
+      final raw =
+          prefs.getString(businessesKey) ?? prefs.getString(_kCachedBusinesses);
       if (raw == null || raw.isEmpty) return;
 
       final decoded = jsonDecode(raw);
@@ -73,7 +115,9 @@ class BusinessProvider extends ChangeNotifier {
 
       _businesses = cached;
 
-      final preferredId = prefs.getString(_kCachedCurrentBusinessId);
+      final preferredId =
+          prefs.getString(currentBusinessKey) ??
+          prefs.getString(_kCachedCurrentBusinessId);
       _currentBusiness = preferredId == null
           ? cached.first
           : cached.firstWhere(
@@ -81,6 +125,7 @@ class BusinessProvider extends ChangeNotifier {
               orElse: () => cached.first,
             );
 
+      await _syncCurrentBusinessToApiClient();
       _status = BusinessStatus.loaded;
       notifyListeners();
     } catch (_) {
@@ -90,6 +135,13 @@ class BusinessProvider extends ChangeNotifier {
 
   Future<void> _saveCache() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = await _currentUserId(prefs);
+    final businessesKey = userId == null
+        ? _kCachedBusinesses
+        : _scopedKey(_kCachedBusinesses, userId);
+    final currentBusinessKey = userId == null
+        ? _kCachedCurrentBusinessId
+        : _scopedKey(_kCachedCurrentBusinessId, userId);
     final payload = _businesses
         .map(
           (b) => {
@@ -103,34 +155,51 @@ class BusinessProvider extends ChangeNotifier {
         )
         .toList(growable: false);
 
-    await prefs.setString(_kCachedBusinesses, jsonEncode(payload));
+    await prefs.setString(businessesKey, jsonEncode(payload));
 
     if (_currentBusiness != null && _currentBusiness!.id.isNotEmpty) {
-      await prefs.setString(_kCachedCurrentBusinessId, _currentBusiness!.id);
+      await prefs.setString(currentBusinessKey, _currentBusiness!.id);
     }
+
+    await _syncCurrentBusinessToApiClient();
   }
 
   Future<void> _clearCache() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = await _currentUserId(prefs);
+    if (userId != null) {
+      await prefs.remove(_scopedKey(_kCachedBusinesses, userId));
+      await prefs.remove(_scopedKey(_kCachedCurrentBusinessId, userId));
+    }
     await prefs.remove(_kCachedBusinesses);
     await prefs.remove(_kCachedCurrentBusinessId);
   }
 
   // ── Load all businesses on app start ───────────────────────
   Future<void> loadBusinesses() async {
+    if (_businesses.isEmpty) {
+      await _hydrateFromCache();
+    }
+
     _status = BusinessStatus.loading;
     notifyListeners();
 
     try {
       final ds = serviceLocator.businessRemoteDataSource;
       final list = await ds.getAllBusinesses();
-      _businesses = list.map((m) => BusinessModel.fromMap(m)).toList();
+      final remoteBusinesses = list
+          .map((m) => BusinessModel.fromMap(m))
+          .toList();
 
-      if (_businesses.isNotEmpty) {
+      if (remoteBusinesses.isNotEmpty) {
+        _businesses = remoteBusinesses;
         _currentBusiness = _businesses.first;
         await _saveCache();
+      } else if (_businesses.isEmpty) {
+        _currentBusiness = null;
       }
 
+      await _syncCurrentBusinessToApiClient();
       _status = BusinessStatus.loaded;
     } catch (e) {
       // Keep any cached businesses on network failure.
@@ -201,12 +270,17 @@ class BusinessProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> reset() async {
+  Future<void> reset({bool clearCache = false}) async {
     _status = BusinessStatus.initial;
     _errorMessage = null;
     _currentBusiness = null;
     _businesses = [];
-    await _clearCache();
+    if (clearCache) {
+      await _clearCache();
+    } else {
+      await _hydrateFromCache();
+      return;
+    }
     notifyListeners();
   }
 

@@ -26,10 +26,53 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  static const _authUserPrefsKey = 'auth_user';
   static const _profileImagePrefsKey = 'dashboard_profile_image_base64';
+  static const _inventoryOnboardingCompletedKey =
+      'inventory_onboarding_completed';
+  static const _inventoryDraftNameKey = 'inventory_draft_name';
+  static const _inventoryDraftQuantityKey = 'inventory_draft_quantity';
+  static const _inventoryDraftTypeKey = 'inventory_draft_type';
+  static const _inventoryDraftUnitKey = 'inventory_draft_unit';
+  static const _inventoryDraftDateKey = 'inventory_draft_date';
   Uint8List? _profileImageBytes;
   bool _notificationsEnabled = true;
   bool _compactMode = false;
+
+  String _scopedPrefsKey(String baseKey, SharedPreferences prefs) {
+    final rawUser = prefs.getString(_authUserPrefsKey);
+    if (rawUser == null || rawUser.isEmpty) return baseKey;
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic>) {
+        final userId = decoded['id'] as String?;
+        if (userId != null && userId.trim().isNotEmpty) {
+          return '${baseKey}_${userId.trim()}';
+        }
+      }
+    } catch (_) {
+      // Ignore malformed cached auth payloads.
+    }
+
+    return baseKey;
+  }
+
+  Future<void> _clearOnboardingPrefs(SharedPreferences prefs) async {
+    final keys = [
+      _inventoryOnboardingCompletedKey,
+      _inventoryDraftNameKey,
+      _inventoryDraftQuantityKey,
+      _inventoryDraftTypeKey,
+      _inventoryDraftUnitKey,
+      _inventoryDraftDateKey,
+    ];
+
+    for (final key in keys) {
+      await prefs.remove(key);
+      await prefs.remove(_scopedPrefsKey(key, prefs));
+    }
+  }
 
   @override
   void initState() {
@@ -94,7 +137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _logout() async {
-    context.read<BusinessProvider>().reset();
+    await context.read<BusinessProvider>().reset();
     context.read<InventoryProvider>().reset();
     context.read<DailySalesProvider>().reset();
     await context.read<AuthProvider>().logout();
@@ -135,12 +178,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await prefs.remove(_profileImagePrefsKey);
     await prefs.remove('dashboard_notifications_enabled');
     await prefs.remove('dashboard_compact_mode');
+    await _clearOnboardingPrefs(prefs);
 
-    await _logout();
+    await context.read<DashboardProvider>().clearPersistedCache();
+    await context.read<BusinessProvider>().reset(clearCache: true);
+    await context.read<InventoryProvider>().clearPersistedCache();
+    context.read<InventoryProvider>().reset();
+    await context.read<DailySalesProvider>().clearPersistedCache();
+    context.read<DailySalesProvider>().reset();
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const SplashScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _goToLogin() async {
-    context.read<BusinessProvider>().reset();
+    await context.read<BusinessProvider>().reset();
     context.read<InventoryProvider>().reset();
     context.read<DailySalesProvider>().reset();
     await context.read<AuthProvider>().logout();
