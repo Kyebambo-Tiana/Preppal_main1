@@ -11,6 +11,8 @@ class BusinessModel {
   final String businessName;
   final String businessType;
   final String location;
+  final String contactNumber;
+  final String website;
   final String? createdAt;
 
   const BusinessModel({
@@ -19,6 +21,8 @@ class BusinessModel {
     required this.businessName,
     required this.businessType,
     required this.location,
+    required this.contactNumber,
+    required this.website,
     this.createdAt,
   });
 
@@ -29,6 +33,8 @@ class BusinessModel {
       businessName: map['businessName'] as String? ?? '',
       businessType: map['businessType'] as String? ?? '',
       location: map['location'] as String? ?? '',
+      contactNumber: map['contactNumber'] as String? ?? '',
+      website: map['website'] as String? ?? '',
       createdAt: map['createdAt'] as String?,
     );
   }
@@ -150,6 +156,8 @@ class BusinessProvider extends ChangeNotifier {
             'businessName': b.businessName,
             'businessType': b.businessType,
             'location': b.location,
+            'contactNumber': b.contactNumber,
+            'website': b.website,
             'createdAt': b.createdAt,
           },
         )
@@ -247,7 +255,13 @@ class BusinessProvider extends ChangeNotifier {
               location: location,
             );
 
-      _currentBusiness = BusinessModel.fromMap(result);
+      final mergedBusiness = <String, dynamic>{
+        ...result,
+        'contactNumber': contactNumber?.trim() ?? '',
+        'website': website?.trim() ?? '',
+      };
+
+      _currentBusiness = BusinessModel.fromMap(mergedBusiness);
       final existingIndex = _businesses.indexWhere(
         (b) => b.id == _currentBusiness!.id,
       );

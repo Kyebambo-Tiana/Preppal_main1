@@ -25,8 +25,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final List<String> _currencies = ['NGN', 'USD'];
   String _selectedCurrency = 'NGN';
 
+  // shelf life unit options with their multiplier to hours
+  final List<String> _shelfLifeUnits = ['hours', 'days', 'months', 'years'];
+  String _selectedShelfLifeUnit = 'hours';
+
   DateTime _productionDate = DateTime.now();
-  final _shelfLifeController = TextEditingController(text: '168'); // hours
+  final _shelfLifeController = TextEditingController();
 
   @override
   void dispose() {
@@ -63,15 +67,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     // ensure shelf life is non-negative integer
-    final shelfLife = int.tryParse(_shelfLifeController.text) ?? -1;
-    if (shelfLife < 0) {
+    final shelfLifeValue = int.tryParse(_shelfLifeController.text) ?? -1;
+    if (shelfLifeValue < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Shelf life must be zero or more hours'),
+          content: Text('Shelf life must be zero or more'),
           backgroundColor: Colors.red,
         ),
       );
       return;
+    }
+
+    // Convert shelf life to hours based on selected unit
+    int shelfLife;
+    switch (_selectedShelfLifeUnit) {
+      case 'days':
+        shelfLife = shelfLifeValue * 24;
+        break;
+      case 'months':
+        shelfLife = shelfLifeValue * 24 * 30;
+        break;
+      case 'years':
+        shelfLife = shelfLifeValue * 24 * 365;
+        break;
+      default: // hours
+        shelfLife = shelfLifeValue;
     }
 
     final product = ProductModel(
@@ -353,14 +373,42 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Shelf life (hours)',
+                        'Shelf life',
                         style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _selectedShelfLifeUnit,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: _shelfLifeUnits
+                            .map(
+                              (u) => DropdownMenuItem(value: u, child: Text(u)),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _selectedShelfLifeUnit = val!),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _shelfLifeController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(hintText: 'e.g. 168'),
+                        decoration: InputDecoration(
+                          hintText: _selectedShelfLifeUnit == 'hours'
+                              ? 'e.g. 24'
+                              : _selectedShelfLifeUnit == 'days'
+                              ? 'e.g. 7'
+                              : _selectedShelfLifeUnit == 'months'
+                              ? 'e.g. 3'
+                              : 'e.g. 1',
+                        ),
                         validator: (v) {
                           if (v!.isEmpty) return 'Required';
                           if (int.tryParse(v) == null) return 'Invalid';
@@ -393,6 +441,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: inventory.isLoading ? null : _handleSubmit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F7A6B),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                           child: inventory.isLoading
                               ? const SizedBox(
                                   height: 20,

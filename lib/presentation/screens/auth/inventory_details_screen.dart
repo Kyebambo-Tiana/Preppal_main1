@@ -15,10 +15,10 @@ class InventoryDetailsScreen extends StatefulWidget {
 }
 
 class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
-  static const _brandPrimary = Color(0xFFFF6B35);
-  static const _brandPrimaryDark = Color(0xFF9C3F1E);
-  static const _brandSoft = Color(0xFFFFE8DE);
-  static const _surfaceSoft = Color(0xFFFFF3ED);
+  static const _brandPrimary = Color(0xFF0F7A6B);
+  static const _brandPrimaryDark = Color(0xFF0F7A6B);
+  static const _brandSoft = Color(0xFFC8E6C9);
+  static const _surfaceSoft = Color(0xFFF5E1E8);
 
   static const double _defaultOnboardingPrice = 1.0;
   static const int _defaultShelfLifeHours = 168;
@@ -362,15 +362,6 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     );
   }
 
-  void _skipToDashboard() {
-    _markOnboardingCompleted();
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -405,7 +396,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(3),
-                          color: i <= 2 ? _brandPrimary : _brandSoft,
+                          color: i <= 1 ? _brandPrimary : _brandSoft,
                         ),
                       ),
                     ),
@@ -575,13 +566,6 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                Center(
-                  child: TextButton(
-                    onPressed: _submitting ? null : _skipToDashboard,
-                    child: const Text('Skip for now'),
-                  ),
-                ),
                 const SizedBox(height: 28),
                 Row(
                   children: [

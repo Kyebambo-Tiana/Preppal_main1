@@ -11,9 +11,24 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
+  static const _brandPrimary = Color(0xFF0F7A6B);
+  static const _brandPrimaryDark = Color(0xFF0B5D52);
+
   String selectedFilter = 'All';
   bool _showCriticalBanner = true;
   bool _highPriorityFirst = true;
+
+  Future<void> _refreshAlerts() async {
+    final businessProvider = context.read<BusinessProvider>();
+    if (!businessProvider.hasBusiness) {
+      await businessProvider.loadBusinesses();
+    }
+
+    final business = businessProvider.currentBusiness;
+    if (business != null && business.id.isNotEmpty) {
+      await context.read<AlertsProvider>().loadAlerts(business.id);
+    }
+  }
 
   @override
   void initState() {
@@ -117,7 +132,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Color _getAlertColor(String severity) {
     switch (severity) {
       case 'High':
-        return const Color(0xFFD32F2F);
+        return _brandPrimaryDark;
       case 'Medium':
         return const Color(0xFFFFA726);
       case 'Low':
@@ -153,7 +168,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             context.read<AlertsProvider>().errorMessage ??
                 'Failed to mark alert as read',
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: _brandPrimary,
         ),
       );
     }
@@ -172,7 +187,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             context.read<AlertsProvider>().errorMessage ??
                 'Failed to delete alert',
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: _brandPrimary,
         ),
       );
     }
@@ -200,7 +215,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFD35A2A),
+        backgroundColor: _brandPrimary,
         elevation: 0,
         title: const Text('Alerts'),
         centerTitle: true,
@@ -261,7 +276,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 // Critical alert banner
                 if (_showCriticalBanner && highCount > 0)
                   Container(
-                    color: const Color(0xFFD35A2A),
+                    color: _brandPrimary,
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
@@ -343,42 +358,54 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
                 // Alerts list
                 Expanded(
-                  child: filteredAlerts.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  child: RefreshIndicator(
+                    onRefresh: _refreshAlerts,
+                    child: filteredAlerts.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             children: [
-                              Icon(
-                                Icons.check_circle_outline_rounded,
-                                size: 64,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No alerts',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey[600],
+                              SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.45,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        size: 64,
+                                        color: Colors.grey[300],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No alerts',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: filteredAlerts.length,
+                            itemBuilder: (context, index) {
+                              final alert = filteredAlerts[index];
+                              return _AlertCard(
+                                alert: alert,
+                                alertColor: _getAlertColor(alert.severity),
+                                icon: _getAlertIcon(alert.severity),
+                                onMarkRead: () => _handleMarkRead(alert),
+                                onDelete: () => _handleDelete(alert),
+                              );
+                            },
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: filteredAlerts.length,
-                          itemBuilder: (context, index) {
-                            final alert = filteredAlerts[index];
-                            return _AlertCard(
-                              alert: alert,
-                              alertColor: _getAlertColor(alert.severity),
-                              icon: _getAlertIcon(alert.severity),
-                              onMarkRead: () => _handleMarkRead(alert),
-                              onDelete: () => _handleDelete(alert),
-                            );
-                          },
-                        ),
+                  ),
                 ),
               ],
             ),
@@ -404,10 +431,12 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD35A2A) : Colors.white,
+          color: isSelected ? _AlertsScreenState._brandPrimary : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFD35A2A) : Colors.grey[300]!,
+            color: isSelected
+                ? _AlertsScreenState._brandPrimary
+                : Colors.grey[300]!,
             width: 1,
           ),
         ),

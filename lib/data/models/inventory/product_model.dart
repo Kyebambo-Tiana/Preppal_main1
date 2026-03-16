@@ -43,6 +43,8 @@ enum ProductUnit {
   pcs,
   @JsonValue('dozen')
   dozen,
+  @JsonValue('others')
+  others,
 }
 
 @JsonSerializable()

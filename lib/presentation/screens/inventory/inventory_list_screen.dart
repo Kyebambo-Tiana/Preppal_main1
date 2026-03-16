@@ -4,6 +4,7 @@ import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/data/models/inventory/product_model.dart';
 import 'package:prepal2/presentation/screens/inventory/product_detail_screen.dart';
 import 'package:prepal2/presentation/screens/inventory/add_product_screen.dart';
+import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
 
 const kInventoryPrimary = Color(0xFF0F7A6B);
 const kInventoryPrimaryLight = Color(0xFF168B7B);
@@ -267,8 +268,15 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton(
-                                onPressed: () => inv.loadProducts(),
-                                child: const Text('Retry'),
+                                onPressed: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BusinessDetailsScreen(),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Add Business'),
                               ),
                             ],
                           ),

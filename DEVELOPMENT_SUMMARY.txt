@@ -10,6 +10,7 @@ CURRENT STATUS: FULLY WIRED TO BACKEND
 All screens are connected to the live backend API.
 No mock, fake, or demo datasources remain in the codebase.
 All local state persists across logout and full app restarts.
+Backend wiring audit re-verified across all screens on March 16, 2026.
 
 Backend APIs
   Main backend:  https://preppal-backend-px1d.onrender.com
@@ -32,6 +33,7 @@ COMPLETED FEATURES
    - BusinessDetailsScreen prefills from saved business on every open
    - BusinessProvider creates or updates business via /api/v1/business
    - Business list cached locally per signed-in user (SharedPreferences)
+  - MainShell loads businesses first on app shell init (sets ApiClient businessId)
    - Cache rehydrates immediately after logout/login - no re-entry required
    - Empty backend 404 does NOT overwrite valid local cache
    - ApiClient businessId and businessType updated whenever cache hydrates
@@ -45,7 +47,7 @@ COMPLETED FEATURES
    - Units: KG, G, L, ML, PCS, DOZEN, OTHERS
    - Add Another queues products locally before batch submit
    - Save and Submit POSTs each product to /api/v1/inventory with businessId
-   - Skip for now bypasses onboarding and goes to dashboard
+  - Onboarding skip option removed (users complete this step before dashboard)
    - Completion flag and draft persisted per user in SharedPreferences
    - Draft restored on every open; completion flag skips screen on next visit
    - Default price of 1.0 NGN used (backend requires price > 0; UI captures core fields only)
@@ -82,6 +84,7 @@ COMPLETED FEATURES
 
 8. ALERTS (AlertsScreen)
    - Backend alerts via /api/v1/alerts with businessId
+  - Alerts are lazy-loaded when Alerts tab/screen opens (not preloaded in MainShell init)
    - Treats 404 / empty / non-JSON responses as no-data (not error)
 
 9. PERSISTENCE (survives logout, app close, device restart)

@@ -15,10 +15,10 @@ class BusinessDetailsScreen extends StatefulWidget {
 }
 
 class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
-  static const _brandPrimary = Color(0xFFFF6B35);
-  static const _brandPrimaryDark = Color(0xFF9C3F1E);
-  static const _brandSoft = Color(0xFFFFE8DE);
-  static const _surfaceSoft = Color(0xFFFFF3ED);
+  static const _brandPrimary = Color(0xFF0F7A6B);
+  static const _brandPrimaryDark = Color(0xFF0F7A6B);
+  static const _brandSoft = Color(0xFFC8E6C9);
+  static const _surfaceSoft = Color(0xFFF5E1E8);
 
   static const String _kInventoryOnboardingCompleted =
       'inventory_onboarding_completed';
@@ -84,6 +84,8 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
 
     _businessNameController.text = existing.businessName;
     _locationController.text = existing.location;
+    _contactNumberController.text = existing.contactNumber;
+    _websiteController.text = existing.website;
     if (_businessTypes.contains(existing.businessType)) {
       _selectedBusinessType = existing.businessType;
     }
@@ -115,23 +117,9 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     );
 
     if (success && mounted && navigateAfter) {
-      final prefs = await SharedPreferences.getInstance();
-      final completedKey = _scopedPrefsKey(
-        _kInventoryOnboardingCompleted,
-        prefs,
-      );
-      final inventoryCompleted =
-          prefs.getBool(completedKey) ??
-          prefs.getBool(_kInventoryOnboardingCompleted) ??
-          false;
-
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => inventoryCompleted
-              ? const MainShell()
-              : const InventoryDetailsScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const InventoryDetailsScreen()),
       );
     } else if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -317,7 +305,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                           backgroundColor: _brandSoft,
                           foregroundColor: _brandPrimaryDark,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 4,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -347,7 +338,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                           backgroundColor: _brandPrimary,
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 4,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

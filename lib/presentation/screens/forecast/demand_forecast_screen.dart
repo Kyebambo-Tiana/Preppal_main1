@@ -39,6 +39,10 @@ class DemandForecastScreen extends StatefulWidget {
 }
 
 class _DemandForecastScreenState extends State<DemandForecastScreen> {
+  Future<void> _refreshForecast() async {
+    await context.read<ForecastProvider>().loadForecastData();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -144,362 +148,374 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                     ],
                   ),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Header section with subtitle
-                      Container(
-                        color: kForecastPrimary,
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '7-days Demand Forecast',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+              : RefreshIndicator(
+                  onRefresh: _refreshForecast,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        // Header section with subtitle
+                        Container(
+                          color: kForecastPrimary,
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '7-days Demand Forecast',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Bar Chart with real data
-                            Container(
-                              height: 220,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 20,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        return CustomPaint(
-                                          size: Size(
-                                            constraints.maxWidth,
-                                            constraints.maxHeight,
-                                          ),
-                                          painter: _LineChartPainter(
-                                            data: forecastProvider
-                                                .sevenDayForecast,
-                                          ),
-                                        );
-                                      },
+                              // Bar Chart with real data
+                              Container(
+                                height: 220,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          return CustomPaint(
+                                            size: Size(
+                                              constraints.maxWidth,
+                                              constraints.maxHeight,
+                                            ),
+                                            painter: _LineChartPainter(
+                                              data: forecastProvider
+                                                  .sevenDayForecast,
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // X Axis labels
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: List.generate(
-                                      forecastProvider.sevenDayForecast.length,
-                                      (index) => Text(
+                                    const SizedBox(height: 16),
+                                    // X Axis labels
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: List.generate(
                                         forecastProvider
-                                                .sevenDayForecast[index]['day'] ??
-                                            'Day ${index + 1}',
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 10,
+                                            .sevenDayForecast
+                                            .length,
+                                        (index) => Text(
+                                          forecastProvider
+                                                  .sevenDayForecast[index]['day'] ??
+                                              'Day ${index + 1}',
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 10,
+                                          ),
                                         ),
                                       ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+                              // Legend
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: kForecastPrimary,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'Actual Demand',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFC107),
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'Predicted Demand',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Forecast Accuracy Card
+                        Container(
+                          margin: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: kForecastSurface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: kForecastSurfaceBorder,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Forecast Accuracy',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Last 30 days',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${(forecastProvider.forecastAccuracy * 100).toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-
-                            const SizedBox(height: 16),
-                            // Legend
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: kForecastPrimary,
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Actual Demand',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 24),
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFC107),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Predicted Demand',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Forecast Accuracy Card
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: kForecastSurface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: kForecastSurfaceBorder,
-                            width: 1,
+                              const Icon(
+                                Icons.trending_up,
+                                color: kForecastPrimary,
+                                size: 48,
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Forecast Accuracy',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Last 30 days',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${(forecastProvider.forecastAccuracy * 100).toStringAsFixed(1)}%',
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Icon(
-                              Icons.trending_up,
-                              color: kForecastPrimary,
-                              size: 48,
-                            ),
-                          ],
-                        ),
-                      ),
 
-                      // AI Insight
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: kForecastSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: kForecastSurfaceBorder,
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.lightbulb_outline,
-                              color: kForecastPrimary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                forecastProvider.aiInsight,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // Extra summary details requested in design
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _ForecastMetricCard(
-                                title: 'Total Tomorrow',
-                                value:
-                                    '${_totalTomorrowUnits(forecastProvider.productForecasts)} units',
-                                subtitle: 'Across all items',
-                                icon: Icons.inventory_2_outlined,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _ForecastMetricCard(
-                                title: 'Avg Confidence',
-                                value:
-                                    '${_averageConfidence(forecastProvider.productForecasts).toStringAsFixed(1)}%',
-                                subtitle: 'Model confidence',
-                                icon: Icons.verified_outlined,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _ForecastMetricCard(
-                                title: 'Avg Demand Change',
-                                value:
-                                    '${_averageDemandChange(forecastProvider.productForecasts).toStringAsFixed(1)}%',
-                                subtitle: 'Tomorrow vs today',
-                                icon: Icons.timeline,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _ForecastMetricCard(
-                                title: 'Top Demand Item',
-                                value:
-                                    '${(_highestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')}',
-                                subtitle:
-                                    '${_asInt(_highestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units tomorrow',
-                                icon: Icons.local_fire_department_outlined,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          width: double.infinity,
+                        // AI Insight
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFECECEC)),
+                            color: kForecastSurface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: kForecastSurfaceBorder,
+                              width: 1,
+                            ),
                           ),
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.arrow_downward,
-                                size: 18,
-                                color: Color(0xFF5E5E5E),
+                                Icons.lightbulb_outline,
+                                color: kForecastPrimary,
+                                size: 20,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Lowest expected demand: ${(_lowestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')} (${_asInt(_lowestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units)',
+                                  forecastProvider.aiInsight,
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF5E5E5E),
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 14),
 
-                      // Per-item forecasts
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Demand forecast per item',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                        // Extra summary details requested in design
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _ForecastMetricCard(
+                                  title: 'Total Tomorrow',
+                                  value:
+                                      '${_totalTomorrowUnits(forecastProvider.productForecasts)} units',
+                                  subtitle: 'Across all items',
+                                  icon: Icons.inventory_2_outlined,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ForecastMetricCard(
+                                  title: 'Avg Confidence',
+                                  value:
+                                      '${_averageConfidence(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                                  subtitle: 'Model confidence',
+                                  icon: Icons.verified_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _ForecastMetricCard(
+                                  title: 'Avg Demand Change',
+                                  value:
+                                      '${_averageDemandChange(forecastProvider.productForecasts).toStringAsFixed(1)}%',
+                                  subtitle: 'Tomorrow vs today',
+                                  icon: Icons.timeline,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ForecastMetricCard(
+                                  title: 'Top Demand Item',
+                                  value:
+                                      '${(_highestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')}',
+                                  subtitle:
+                                      '${_asInt(_highestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units tomorrow',
+                                  icon: Icons.local_fire_department_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFECECEC),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            forecastProvider.productForecasts.isEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 24,
-                                      ),
-                                      child: Text(
-                                        'No product forecasts available',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.arrow_downward,
+                                  size: 18,
+                                  color: Color(0xFF5E5E5E),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Lowest expected demand: ${(_lowestDemandItem(forecastProvider.productForecasts)?['name'] ?? 'N/A')} (${_asInt(_lowestDemandItem(forecastProvider.productForecasts)?['tomorrow'])} units)',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF5E5E5E),
                                     ),
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: forecastProvider
-                                        .productForecasts
-                                        .length,
-                                    itemBuilder: (context, index) {
-                                      final product = forecastProvider
-                                          .productForecasts[index];
-                                      return _ProductForecastCard(
-                                        product: product,
-                                      );
-                                    },
                                   ),
-                          ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
-                    ],
+                        const SizedBox(height: 20),
+
+                        // Per-item forecasts
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Demand forecast per item',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              forecastProvider.productForecasts.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 24,
+                                        ),
+                                        child: Text(
+                                          'No product forecasts available',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      itemCount: forecastProvider
+                                          .productForecasts
+                                          .length,
+                                      itemBuilder: (context, index) {
+                                        final product = forecastProvider
+                                            .productForecasts[index];
+                                        return _ProductForecastCard(
+                                          product: product,
+                                        );
+                                      },
+                                    ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
         );
