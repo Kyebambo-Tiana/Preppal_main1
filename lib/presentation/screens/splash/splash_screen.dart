@@ -6,6 +6,9 @@ import 'package:prepal2/presentation/screens/auth/login_screen.dart';
 import 'package:prepal2/presentation/screens/auth/signup_screen.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const kLogoTintColor = Color(0xFFFF6B35);
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,6 +18,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  static const _kHasSeenWelcome = 'has_seen_welcome';
   bool _showYellowSplash = false;
 
   @override
@@ -57,6 +61,18 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenWelcome = prefs.getBool(_kHasSeenWelcome) ?? false;
+
+    if (hasSeenWelcome) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
+    }
+
+    await prefs.setBool(_kHasSeenWelcome, true);
+
     Navigator.of(
       context,
     ).pushReplacement(MaterialPageRoute(builder: (_) => const WelcomeScreen()));
@@ -79,11 +95,49 @@ class _SplashScreenState extends State<SplashScreen> {
           ? const Color(0xFFF0B516)
           : Colors.white,
       body: _showYellowSplash
-          ? SizedBox.expand(
-              child: Image.asset('assets/app_splash.png', fit: BoxFit.cover),
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                final logoSize = constraints.maxWidth * 0.45;
+
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        'assets/app_splash.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Align(
+                      alignment: const Alignment(0, -0.47),
+                      child: Container(
+                        width: logoSize + 8,
+                        height: logoSize + 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: logoSize,
+                          height: logoSize,
+                          color: kLogoTintColor,
+                          colorBlendMode: BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             )
           : Center(
-              child: Image.asset('assets/logo.png', width: 170, height: 170),
+              child: Image.asset(
+                'assets/logo.png',
+                width: 170,
+                height: 170,
+                color: kLogoTintColor,
+                colorBlendMode: BlendMode.srcIn,
+              ),
             ),
     );
   }
@@ -114,7 +168,13 @@ class WelcomeScreen extends StatelessWidget {
                       const Spacer(flex: 2),
 
                       // PrepPal Logo
-                      Image.asset('assets/logo.png', width: 200, height: 200),
+                      Image.asset(
+                        'assets/logo.png',
+                        width: 200,
+                        height: 200,
+                        color: kLogoTintColor,
+                        colorBlendMode: BlendMode.srcIn,
+                      ),
 
                       const SizedBox(height: 16),
 
@@ -155,69 +215,70 @@ class WelcomeScreen extends StatelessWidget {
 
                       const Spacer(flex: 2),
 
-                      // Log In button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginScreen(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            height: 40,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginScreen(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F7A6B),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD35A2A),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: const Text(
-                            'Log in',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Sign Up button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SignupScreen(),
+                              child: const Text(
+                                'Log in',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF3CDD3),
-                            foregroundColor: const Color(0xFF5A3A3A),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text(
-                            'Sign up',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(width: 14),
+                          SizedBox(
+                            width: 100,
+                            height: 40,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SignupScreen(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE8F5E9),
+                                foregroundColor: const Color(0xFF2E7D32),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Sign up',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
 
                       const SizedBox(height: 32),

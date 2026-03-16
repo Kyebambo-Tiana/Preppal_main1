@@ -46,7 +46,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       lastDate: DateTime(2030),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFFD32F2F)),
+          colorScheme: const ColorScheme.light(primary: Color(0xFF0F7A6B)),
         ),
         child: child!,
       ),
@@ -118,7 +118,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFD32F2F),
+        backgroundColor: const Color(0xFF0F7A6B),
         foregroundColor: Colors.white,
         title: const Text('Add Product'),
       ),
@@ -138,7 +138,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(3),
                       color: index < 2
-                          ? const Color(0xFFD35A2A)
+                          ? const Color(0xFF0F7A6B)
                           : const Color(0xFFEBEBEB),
                     ),
                   ),
@@ -377,11 +377,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.maybePop(context),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
-                            side: const BorderSide(color: Color(0xFFD32F2F)),
-                            foregroundColor: const Color(0xFFD32F2F),
+                            side: const BorderSide(color: Color(0xFF0F7A6B)),
+                            foregroundColor: const Color(0xFF0F7A6B),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),

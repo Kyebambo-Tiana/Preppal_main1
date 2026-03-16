@@ -6,6 +6,7 @@ import 'package:prepal2/presentation/providers/auth_provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:prepal2/presentation/screens/splash/splash_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -82,7 +83,7 @@ class _SignupScreenState extends State<SignupScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           'PrepPal',
@@ -106,7 +107,13 @@ class _SignupScreenState extends State<SignupScreen> {
                         const SizedBox(height: 24),
 
                         // PrepPal Logo
-                        Image.asset('assets/logo.png', width: 120, height: 120),
+                        Image.asset(
+                          'assets/logo.png',
+                          width: 120,
+                          height: 120,
+                          color: kLogoTintColor,
+                          colorBlendMode: BlendMode.srcIn,
+                        ),
 
                         const SizedBox(height: 24),
 
@@ -209,7 +216,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   color: Color(0xFFBDBDBD),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFE8DEF8),
+                                fillColor: const Color(0xFFE8F5E9),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,

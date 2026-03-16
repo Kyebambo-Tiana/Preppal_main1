@@ -15,6 +15,11 @@ class BusinessDetailsScreen extends StatefulWidget {
 }
 
 class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
+  static const _brandPrimary = Color(0xFFFF6B35);
+  static const _brandPrimaryDark = Color(0xFF9C3F1E);
+  static const _brandSoft = Color(0xFFFFE8DE);
+  static const _surfaceSoft = Color(0xFFFFF3ED);
+
   static const String _kInventoryOnboardingCompleted =
       'inventory_onboarding_completed';
   static const String _kAuthUserKey = 'auth_user';
@@ -132,7 +137,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Business details saved ✅'),
-          backgroundColor: Color(0xFF4CAF50),
+          backgroundColor: _brandPrimary,
         ),
       );
     }
@@ -149,7 +154,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           'PrepPal',
@@ -175,9 +180,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                         margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(3),
-                          color: i <= 2
-                              ? const Color(0xFFD35A2A)
-                              : const Color(0xFFE8DEF8),
+                          color: i <= 2 ? _brandPrimary : _brandSoft,
                         ),
                       ),
                     ),
@@ -311,8 +314,8 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                             ? null
                             : () => _submit(navigateAfter: false),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF3CDD3),
-                          foregroundColor: const Color(0xFF5A3A3A),
+                          backgroundColor: _brandSoft,
+                          foregroundColor: _brandPrimaryDark,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -324,7 +327,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF5A3A3A),
+                                  color: _brandPrimaryDark,
                                   strokeWidth: 2,
                                 ),
                               )
@@ -341,7 +344,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                             ? null
                             : () => _submit(navigateAfter: true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD35A2A),
+                          backgroundColor: _brandPrimary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -391,7 +394,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
       filled: true,
-      fillColor: const Color(0xFFE8DEF8),
+      fillColor: _surfaceSoft,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

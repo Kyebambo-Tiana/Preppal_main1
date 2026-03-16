@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/forecast_provider.dart';
 
+const kForecastPrimary = Color(0xFF0F7A6B);
+const kForecastSurface = Color(0xFFE8F5E9);
+const kForecastSurfaceBorder = Color(0xFFC8E6C9);
+
 double _asDouble(dynamic value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) {
@@ -98,7 +102,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
         return Scaffold(
           backgroundColor: const Color(0xFFF5F5F5),
           appBar: AppBar(
-            backgroundColor: const Color(0xFFD32F2F),
+            backgroundColor: kForecastPrimary,
             elevation: 0,
             title: const Text(
               'Demand Forecast',
@@ -113,9 +117,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
           body: forecastProvider.isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFFD32F2F),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(kForecastPrimary),
                   ),
                 )
               : forecastProvider.forecastData == null
@@ -147,7 +149,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                     children: [
                       // Header section with subtitle
                       Container(
-                        color: const Color(0xFFD32F2F),
+                        color: kForecastPrimary,
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +226,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                                       width: 12,
                                       height: 12,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFD32F2F),
+                                        color: kForecastPrimary,
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),
@@ -270,10 +272,10 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                         margin: const EdgeInsets.all(16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFEBEE),
+                          color: kForecastSurface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFFEF9A9A),
+                            color: kForecastSurfaceBorder,
                             width: 1,
                           ),
                         ),
@@ -312,7 +314,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                             ),
                             const Icon(
                               Icons.trending_up,
-                              color: Color(0xFFD32F2F),
+                              color: kForecastPrimary,
                               size: 48,
                             ),
                           ],
@@ -324,10 +326,10 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3E0),
+                          color: kForecastSurface,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFFFFCC80),
+                            color: kForecastSurfaceBorder,
                             width: 1,
                           ),
                         ),
@@ -335,7 +337,7 @@ class _DemandForecastScreenState extends State<DemandForecastScreen> {
                           children: [
                             const Icon(
                               Icons.lightbulb_outline,
-                              color: Color(0xFFFFC107),
+                              color: kForecastPrimary,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
@@ -531,7 +533,7 @@ class _ForecastMetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFFD32F2F)),
+          Icon(icon, size: 18, color: kForecastPrimary),
           const SizedBox(height: 6),
           Text(
             title,
@@ -683,7 +685,7 @@ class _ProductForecastCard extends StatelessWidget {
                         minHeight: 6,
                         backgroundColor: Colors.grey[200],
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFFD32F2F),
+                          kForecastPrimary,
                         ),
                       ),
                     ),
@@ -770,7 +772,7 @@ class _LineChartPainter extends CustomPainter {
     }
 
     final paintLine1 = Paint()
-      ..color = const Color(0xFFD32F2F)
+      ..color = kForecastPrimary
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -780,7 +782,7 @@ class _LineChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final paintDots1 = Paint()
-      ..color = const Color(0xFFD32F2F)
+      ..color = kForecastPrimary
       ..style = PaintingStyle.fill;
 
     final paintDots2 = Paint()

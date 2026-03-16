@@ -15,6 +15,11 @@ class InventoryDetailsScreen extends StatefulWidget {
 }
 
 class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
+  static const _brandPrimary = Color(0xFFFF6B35);
+  static const _brandPrimaryDark = Color(0xFF9C3F1E);
+  static const _brandSoft = Color(0xFFFFE8DE);
+  static const _surfaceSoft = Color(0xFFFFF3ED);
+
   static const double _defaultOnboardingPrice = 1.0;
   static const int _defaultShelfLifeHours = 168;
   static const String _kInventoryOnboardingCompleted =
@@ -254,7 +259,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Saved locally: ${_queuedProducts.length} product(s)'),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: _brandPrimary,
       ),
     );
   }
@@ -281,7 +286,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Product saved successfully'),
-          backgroundColor: Color(0xFF4CAF50),
+          backgroundColor: _brandPrimary,
         ),
       );
     } else {
@@ -375,7 +380,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: _submitting ? null : () => Navigator.pop(context),
+          onPressed: _submitting ? null : () => Navigator.maybePop(context),
         ),
         title: const Text(
           'PrepPal',
@@ -400,9 +405,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(3),
-                          color: i <= 2
-                              ? const Color(0xFFD35A2A)
-                              : const Color(0xFFE8DEF8),
+                          color: i <= 2 ? _brandPrimary : _brandSoft,
                         ),
                       ),
                     ),
@@ -550,7 +553,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _submitting ? null : _addAnotherProduct,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD35A2A),
+                      backgroundColor: _brandPrimary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -586,8 +589,8 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                       child: ElevatedButton(
                         onPressed: _submitting ? null : _saveCurrentToApi,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF3CDD3),
-                          foregroundColor: const Color(0xFF5A3A3A),
+                          backgroundColor: _brandSoft,
+                          foregroundColor: _brandPrimaryDark,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -599,7 +602,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF5A3A3A),
+                                  color: _brandPrimaryDark,
                                   strokeWidth: 2,
                                 ),
                               )
@@ -614,7 +617,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                       child: ElevatedButton(
                         onPressed: _submitting ? null : _submitAll,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD35A2A),
+                          backgroundColor: _brandPrimary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -663,7 +666,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
       filled: true,
-      fillColor: const Color(0xFFE8DEF8),
+      fillColor: _surfaceSoft,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

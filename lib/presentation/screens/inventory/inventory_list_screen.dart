@@ -5,6 +5,9 @@ import 'package:prepal2/data/models/inventory/product_model.dart';
 import 'package:prepal2/presentation/screens/inventory/product_detail_screen.dart';
 import 'package:prepal2/presentation/screens/inventory/add_product_screen.dart';
 
+const kInventoryPrimary = Color(0xFF0F7A6B);
+const kInventoryPrimaryLight = Color(0xFF168B7B);
+
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
 
@@ -122,7 +125,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFE53935), Color(0xFFD32F2F)],
+                    colors: [kInventoryPrimaryLight, kInventoryPrimary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -185,7 +188,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                                     content: Text(
                                       'Product added successfully!',
                                     ),
-                                    backgroundColor: Colors.green,
+                                    backgroundColor: kInventoryPrimary,
                                   ),
                                 );
                               },

@@ -17,6 +17,8 @@ import 'package:prepal2/presentation/screens/auth/login_screen.dart';
 import 'package:prepal2/presentation/screens/splash/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const kDashboardPrimary = Color(0xFF0F7A6B);
+
 // Changed to StatefulWidget so we can call loadSales() on init
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -428,7 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             'View all (${forecast.sevenDayForecast.length})',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFFD35A2A),
+                              color: kDashboardPrimary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -466,7 +468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               _buildLegendItem(
                                 label: 'Predicted Sales',
-                                color: const Color(0xFFD32F2F),
+                                color: kDashboardPrimary,
                               ),
                               _buildLegendItem(
                                 label: 'Actual Sales',
@@ -491,7 +493,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 'View all (${forecast.sevenDayForecast.length})',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.red[400],
+                                  color: kDashboardPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -680,7 +682,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             actionText,
             style: TextStyle(
               fontSize: 10,
-              color: Colors.red[400],
+              color: kDashboardPrimary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -914,19 +916,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.red[50],
+          color: kDashboardPrimary,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red[100]!),
+          border: Border.all(color: kDashboardPrimary),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.black87, size: 20),
+            Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: 8),
             Text(
               title,
               textAlign: TextAlign.start,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           ],
         ),
@@ -972,7 +974,7 @@ class _DashboardHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
-        color: Color(0xFFD32F2F),
+        color: kDashboardPrimary,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(20),
           bottomRight: Radius.circular(20),
@@ -1032,7 +1034,7 @@ class _DashboardHeader extends StatelessWidget {
                           ? MemoryImage(profileImageBytes!)
                           : null,
                       child: profileImageBytes == null
-                          ? const Icon(Icons.person, color: Color(0xFFD32F2F))
+                          ? const Icon(Icons.person, color: kDashboardPrimary)
                           : null,
                     ),
                   ),
@@ -1329,7 +1331,7 @@ class _StatsRow extends StatelessWidget {
           label: 'Total Products',
           value: '${inventory.totalProducts}',
           icon: Icons.inventory_2,
-          color: const Color(0xFFD32F2F),
+          color: kDashboardPrimary,
         ),
         const SizedBox(width: 12),
         _StatCard(
@@ -1414,7 +1416,7 @@ class _LineChartPainter extends CustomPainter {
     if (data.length < 2) return;
 
     final paintLine1 = Paint()
-      ..color = const Color(0xFFD32F2F)
+      ..color = kDashboardPrimary
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final paintLine2 = Paint()
@@ -1422,7 +1424,7 @@ class _LineChartPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final paintDots1 = Paint()
-      ..color = const Color(0xFFD32F2F)
+      ..color = kDashboardPrimary
       ..style = PaintingStyle.fill;
     final paintDots2 = Paint()
       ..color = const Color(0xFFFFC107)

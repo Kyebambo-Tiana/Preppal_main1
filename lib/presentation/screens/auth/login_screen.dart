@@ -4,6 +4,7 @@ import 'package:prepal2/presentation/providers/auth_provider.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
+import 'package:prepal2/presentation/screens/splash/splash_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -63,7 +64,12 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+            );
+          },
         ),
         title: const Text(
           'PrepPal',
@@ -86,7 +92,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         const SizedBox(height: 24),
 
-                        Image.asset('assets/logo.png', width: 120, height: 120),
+                        Image.asset(
+                          'assets/logo.png',
+                          width: 120,
+                          height: 120,
+                          color: kLogoTintColor,
+                          colorBlendMode: BlendMode.srcIn,
+                        ),
 
                         const SizedBox(height: 24),
 
@@ -117,7 +129,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           onChanged: (_) => authProvider.clearError(),
-                          decoration: _inputDecoration('yourmail@example.com'),
+                          decoration: _inputDecoration(
+                            'yourmail@example.com',
+                            fillColor: const Color(0xFFE8F5E9),
+                          ),
                           validator: (v) {
                             if (v == null || v.isEmpty)
                               return 'Please enter your email';
@@ -177,37 +192,39 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 24),
 
                         // Login button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: authProvider.isLoading
-                                ? null
-                                : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF6B35),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        Center(
+                          child: SizedBox(
+                            width: 120,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: authProvider.isLoading
+                                  ? null
+                                  : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF9B8B92),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
+                              child: authProvider.isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Log in',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
-                            child: authProvider.isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Log in',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                           ),
                         ),
 
@@ -236,22 +253,23 @@ class _LoginScreenState extends State<LoginScreen> {
     ),
   );
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
-    filled: true,
-    fillColor: const Color(0xFFE8DEF8),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-  );
+  InputDecoration _inputDecoration(String hint, {Color? fillColor}) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
+        filled: true,
+        fillColor: fillColor ?? const Color(0xFFE8DEF8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      );
 }

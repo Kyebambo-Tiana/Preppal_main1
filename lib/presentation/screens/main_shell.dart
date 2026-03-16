@@ -67,7 +67,7 @@ class _MainShellState extends State<MainShell> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFFD32F2F),
+        selectedItemColor: const Color(0xFF0F7A6B),
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(

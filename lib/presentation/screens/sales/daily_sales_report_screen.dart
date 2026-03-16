@@ -188,7 +188,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           'Prepal',
