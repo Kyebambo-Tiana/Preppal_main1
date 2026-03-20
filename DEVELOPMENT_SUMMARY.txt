@@ -121,15 +121,17 @@ REMAINING / FUTURE WORK
 KNOWN ANALYZER WARNINGS
   - None at last verification (workspace analyzer clean on March 20, 2026)
 
-FEATURES NOT YET IMPLEMENTED
-  - Profile / Settings screen (view and edit user account details)
-  - Change password flow
-  - Push notifications (backend-driven, real-time alerts)
-  - Pull-to-refresh on all list screens
-  - Pagination for large inventory or sales lists
-  - Business logo image upload
-  - Multiple-business support (UI to switch between businesses)
-  - Export sales data to CSV / PDF
+FEATURES NOT YET IMPLEMENTED (ROADMAP)
+  - Demo-week polish candidates:
+      - Pull-to-refresh on all list screens
+      - Profile / Settings screen (view and edit user account details)
+  - Post-demo product roadmap:
+      - Change password flow
+      - Push notifications (backend-driven, real-time alerts)
+      - Pagination for large inventory or sales lists
+      - Business logo image upload
+      - Multiple-business support (UI to switch between businesses)
+      - Export sales data to CSV / PDF
 
 TESTING
   - Current automated tests passing: 6/6

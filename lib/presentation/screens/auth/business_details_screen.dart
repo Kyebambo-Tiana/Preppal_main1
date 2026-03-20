@@ -14,7 +14,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   static const _brandPrimary = Color(0xFF0F7A6B);
   static const _brandPrimaryDark = Color(0xFF0F7A6B);
   static const _brandSoft = Color(0xFFC8E6C9);
-  static const _surfaceSoft = Color(0xFFEEF7C0);
+  static const _surfaceSoft = Color(0xFFE8D8E8);
 
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();

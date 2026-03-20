@@ -123,7 +123,7 @@ class InventoryProvider extends ChangeNotifier {
       final cached = decoded
           .whereType<Map<String, dynamic>>()
           .map(ProductModel.fromJson)
-          .toList(growable: false);
+          .toList(growable: true);
 
       if (cached.isEmpty) return;
 

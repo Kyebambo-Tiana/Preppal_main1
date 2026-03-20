@@ -20,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _runSplashSequence() async {
-    const logoSplashDuration = Duration(seconds: 2);
+    const logoSplashDuration = Duration(milliseconds: 800);
 
     await Future.delayed(logoSplashDuration);
     if (!mounted) return;

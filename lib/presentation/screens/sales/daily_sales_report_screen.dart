@@ -4,6 +4,7 @@ import 'package:prepal2/data/models/inventory/product_model.dart';
 import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/providers/daily_sales_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
+import 'package:prepal2/presentation/screens/main_shell.dart';
 
 class DailySalesReportScreen extends StatefulWidget {
   const DailySalesReportScreen({super.key});
@@ -16,6 +17,14 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
   final _formKey = GlobalKey<FormState>();
   final List<_SalesEntry> _salesEntries = [_SalesEntry()];
   bool _isSubmitting = false;
+
+  static const List<String> _fallbackProductTypes = [
+    'Pastries',
+    'Cakes',
+    'Bread',
+    'Drinks',
+  ];
+  static const List<String> _fallbackUnits = ['PCS', 'KG', 'L', 'BOX'];
 
   @override
   void initState() {
@@ -63,16 +72,119 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
     return int.tryParse(value);
   }
 
+  bool _isEntryActive(_SalesEntry entry) {
+    final stockRaw = entry.stockLeftController.text.trim();
+    final hasMeaningfulStock = stockRaw.isNotEmpty && stockRaw != '0';
+
+    return entry.productNameController.text.trim().isNotEmpty ||
+        entry.productionDateController.text.trim().isNotEmpty ||
+        entry.quantitySoldController.text.trim().isNotEmpty ||
+        hasMeaningfulStock;
+  }
+
   ProductModel? _findProductByName(List<ProductModel> products, String name) {
+    final needle = name.trim().toLowerCase();
+    // 1. Exact case-insensitive match
     for (final p in products) {
-      if (p.name == name) return p;
+      if (p.name.trim().toLowerCase() == needle) return p;
+    }
+    // 2. Partial match fallback (handles "Meat Pie" vs "meat pie" typos)
+    for (final p in products) {
+      if (p.name.trim().toLowerCase().contains(needle) ||
+          needle.contains(p.name.trim().toLowerCase()))
+        return p;
     }
     return null;
+  }
+
+  String _categoryLabel(ProductCategory category) {
+    switch (category) {
+      case ProductCategory.beverages:
+        return 'Beverages';
+      case ProductCategory.dairy:
+        return 'Dairy';
+      case ProductCategory.snacks:
+        return 'Snacks';
+      case ProductCategory.produce:
+        return 'Produce';
+      case ProductCategory.bakery:
+        return 'Bakery';
+      case ProductCategory.meat:
+        return 'Meat';
+      case ProductCategory.spices:
+        return 'Spices';
+      case ProductCategory.frozen:
+        return 'Frozen';
+      case ProductCategory.others:
+        return 'Others';
+    }
+  }
+
+  String _unitLabel(ProductUnit unit) {
+    switch (unit) {
+      case ProductUnit.kg:
+        return 'KG';
+      case ProductUnit.g:
+        return 'G';
+      case ProductUnit.litre:
+        return 'L';
+      case ProductUnit.ml:
+        return 'ML';
+      case ProductUnit.pcs:
+        return 'PCS';
+      case ProductUnit.dozen:
+        return 'DOZEN';
+      case ProductUnit.others:
+        return 'OTHERS';
+    }
+  }
+
+  List<String> _productTypeOptions(List<ProductModel> inventoryProducts) {
+    final values =
+        inventoryProducts
+            .map((p) => _categoryLabel(p.category))
+            .toSet()
+            .toList()
+          ..sort();
+
+    return values.isEmpty ? _fallbackProductTypes : values;
+  }
+
+  List<String> _unitOptions(List<ProductModel> inventoryProducts) {
+    final values =
+        inventoryProducts.map((p) => _unitLabel(p.unit)).toSet().toList()
+          ..sort();
+
+    return values.isEmpty ? _fallbackUnits : values;
+  }
+
+  void _syncEntryFromSelectedProduct(
+    _SalesEntry entry,
+    List<ProductModel> inventoryProducts,
+  ) {
+    final selected = _findProductByName(
+      inventoryProducts,
+      entry.productNameController.text.trim(),
+    );
+    if (selected == null) return;
+
+    entry.productType = _categoryLabel(selected.category);
+    entry.unit = _unitLabel(selected.unit);
   }
 
   String _todayIsoDate() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _handleClose() async {
+    final didPop = await Navigator.maybePop(context);
+    if (didPop || !mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainShell()),
+    );
   }
 
   Future<void> _submitToBackend({required bool popAfterSuccess}) async {
@@ -94,6 +206,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
     setState(() => _isSubmitting = true);
 
     final items = <Map<String, dynamic>>[];
+    final unmatchedProducts = <String>[];
     double totalAmount = 0;
 
     for (final entry in _salesEntries) {
@@ -106,9 +219,15 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         inventoryProducts,
         selectedProductName,
       );
-      if (product == null) continue;
+      if (product == null) {
+        unmatchedProducts.add(selectedProductName);
+        continue;
+      }
 
       final quantity = _tryParseInt(entry.quantitySoldController.text) ?? 0;
+      if (quantity <= 0) {
+        continue;
+      }
       final stockLeft = _tryParseInt(entry.stockLeftController.text) ?? 0;
       final unitPrice = product.price;
 
@@ -126,6 +245,18 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
       });
 
       totalAmount += quantity * unitPrice;
+    }
+
+    if (unmatchedProducts.isNotEmpty) {
+      setState(() => _isSubmitting = false);
+      final names = unmatchedProducts.toSet().take(3).join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Select valid inventory product(s): $names'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
     if (items.isEmpty) {
@@ -188,7 +319,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.maybePop(context),
+          onPressed: _handleClose,
         ),
         title: const Text(
           'Prepal',
@@ -377,6 +508,15 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
     List<ProductModel> inventoryProducts,
   ) {
     final productNames = inventoryProducts.map((p) => p.name).toSet().toList();
+    final productTypeOptions = _productTypeOptions(inventoryProducts);
+    final unitOptions = _unitOptions(inventoryProducts);
+
+    if (!productTypeOptions.contains(entry.productType)) {
+      entry.productType = productTypeOptions.first;
+    }
+    if (!unitOptions.contains(entry.unit)) {
+      entry.unit = unitOptions.first;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,16 +533,24 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: entry.productNameController,
-          validator: (value) => (value?.trim().isEmpty ?? true)
-              ? 'Please enter a product name'
-              : null,
+          onChanged: (_) {
+            setState(() {
+              _syncEntryFromSelectedProduct(entry, inventoryProducts);
+            });
+          },
+          validator: (value) {
+            if (!_isEntryActive(entry)) return null;
+            return (value?.trim().isEmpty ?? true)
+                ? 'Please enter a product name'
+                : null;
+          },
           decoration: InputDecoration(
             hintText: productNames.isNotEmpty
                 ? 'e.g., ${productNames.first}'
                 : 'Enter product name',
             hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
             filled: true,
-            fillColor: const Color(0xFFFFE7D1),
+            fillColor: const Color(0xFFE8D8E8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -426,9 +574,10 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
               children: productNames
                   .map(
                     (product) => GestureDetector(
-                      onTap: () => setState(
-                        () => entry.productNameController.text = product,
-                      ),
+                      onTap: () => setState(() {
+                        entry.productNameController.text = product;
+                        _syncEntryFromSelectedProduct(entry, inventoryProducts);
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -478,7 +627,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                     initialValue: entry.productType,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFFFFE7D1),
+                      fillColor: const Color(0xFFE8D8E8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -492,7 +641,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    items: ['Pastries', 'Cakes', 'Bread', 'Drinks']
+                    items: productTypeOptions
                         .map(
                           (type) =>
                               DropdownMenuItem(value: type, child: Text(type)),
@@ -524,13 +673,11 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                   TextFormField(
                     controller: entry.productionDateController,
                     readOnly: true,
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Required' : null,
                     decoration: InputDecoration(
                       hintText: '14-02-2026',
                       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
                       filled: true,
-                      fillColor: const Color(0xFFFFE7D1),
+                      fillColor: const Color(0xFFE8D8E8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -586,9 +733,12 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                     controller: entry.quantitySoldController,
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      final quantity = int.tryParse(v?.trim() ?? '');
-                      if (quantity == null || quantity < 0) {
-                        return 'Enter valid quantity';
+                      if (!_isEntryActive(entry)) return null;
+                      final raw = v?.trim() ?? '';
+                      if (raw.isEmpty) return 'Enter valid quantity';
+                      final quantity = int.tryParse(raw);
+                      if (quantity == null || quantity <= 0) {
+                        return 'Must be greater than 0';
                       }
                       return null;
                     },
@@ -596,7 +746,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                       hintText: '24',
                       hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
                       filled: true,
-                      fillColor: const Color(0xFFFFE7D1),
+                      fillColor: const Color(0xFFE8D8E8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -632,7 +782,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                     initialValue: entry.unit,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFFFFE7D1),
+                      fillColor: const Color(0xFFE8D8E8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -646,7 +796,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    items: ['PCS', 'KG', 'L', 'BOX']
+                    items: unitOptions
                         .map((u) => DropdownMenuItem(value: u, child: Text(u)))
                         .toList(),
                     onChanged: (value) {
@@ -676,7 +826,10 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
           controller: entry.stockLeftController,
           keyboardType: TextInputType.number,
           validator: (v) {
-            final stock = int.tryParse(v?.trim() ?? '');
+            if (!_isEntryActive(entry)) return null;
+            final raw = v?.trim() ?? '';
+            if (raw.isEmpty) return null;
+            final stock = int.tryParse(raw);
             if (stock == null || stock < 0) {
               return 'Enter valid stock';
             }
@@ -686,7 +839,7 @@ class _DailySalesReportScreenState extends State<DailySalesReportScreen> {
             hintText: '0 pcs',
             hintStyle: const TextStyle(color: Color(0xFFBDBDBD)),
             filled: true,
-            fillColor: const Color(0xFFFFE7D1),
+            fillColor: const Color(0xFFE8D8E8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

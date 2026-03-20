@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/data/models/inventory/product_model.dart';
+import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/presentation/screens/main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,6 +30,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   static const String _kDraftUnit = 'inventory_draft_unit';
   static const String _kDraftDate = 'inventory_draft_date';
   static const String _kDraftPrice = 'inventory_draft_price';
+  static const String _kDraftCurrency = 'inventory_draft_currency';
   static const String _kDraftShelfLife = 'inventory_draft_shelf_life';
   static const String _kDraftShelfLifeUnit = 'inventory_draft_shelf_life_unit';
   static const String _kAuthUserKey = 'auth_user';
@@ -44,8 +46,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   String _selectedTypeLabel = 'Pastries';
   String _selectedUnitLabel = 'PCS';
   String _selectedShelfLifeUnit = 'hours';
+  String _selectedCurrency = 'NGN';
   DateTime _productionDate = DateTime.now();
   bool _submitting = false;
+  int _lastServerSavedCount = 0;
 
   final List<String> _productTypes = const [
     'Pastries',
@@ -73,7 +77,11 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(_restoreDraft);
+    Future.microtask(() async {
+      await _restoreDraft();
+      if (!mounted) return;
+      await _ensureBusinessReady();
+    });
   }
 
   String _scopedPrefsKey(String baseKey, SharedPreferences prefs) {
@@ -113,6 +121,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     final dateKey = _scopedPrefsKey(_kDraftDate, prefs);
 
     final priceKey = _scopedPrefsKey(_kDraftPrice, prefs);
+    final currencyKey = _scopedPrefsKey(_kDraftCurrency, prefs);
     final shelfLifeKey = _scopedPrefsKey(_kDraftShelfLife, prefs);
     final shelfLifeUnitKey = _scopedPrefsKey(_kDraftShelfLifeUnit, prefs);
 
@@ -125,6 +134,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     final cachedDate = prefs.getString(dateKey) ?? prefs.getString(_kDraftDate);
     final cachedPrice =
         prefs.getString(priceKey) ?? prefs.getString(_kDraftPrice) ?? '';
+    final cachedCurrency =
+        prefs.getString(currencyKey) ??
+        prefs.getString(_kDraftCurrency) ??
+        'NGN';
     final cachedShelfLife =
         prefs.getString(shelfLifeKey) ??
         prefs.getString(_kDraftShelfLife) ??
@@ -138,6 +151,11 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     _quantityController.text = cachedQuantity;
     _priceController.text = cachedPrice;
     _shelfLifeController.text = cachedShelfLife;
+
+    const validCurrencies = ['NGN', r'$'];
+    if (validCurrencies.contains(cachedCurrency)) {
+      _selectedCurrency = cachedCurrency;
+    }
 
     const validShelfLifeUnits = ['hours', 'days', 'months', 'years'];
     if (validShelfLifeUnits.contains(cachedShelfLifeUnit)) {
@@ -189,6 +207,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       _priceController.text.trim(),
     );
     await prefs.setString(
+      _scopedPrefsKey(_kDraftCurrency, prefs),
+      _selectedCurrency,
+    );
+    await prefs.setString(
       _scopedPrefsKey(_kDraftShelfLife, prefs),
       _shelfLifeController.text.trim(),
     );
@@ -204,6 +226,14 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       _scopedPrefsKey(_kInventoryOnboardingCompleted, prefs),
       true,
     );
+  }
+
+  Future<bool> _ensureBusinessReady() async {
+    final business = context.read<BusinessProvider>();
+    if (business.hasBusiness) return true;
+
+    await business.loadBusinesses();
+    return business.hasBusiness;
   }
 
   ProductCategory _categoryFromLabel(String label) {
@@ -262,6 +292,16 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     }
   }
 
+  Future<void> _handleClose() async {
+    final didPop = await Navigator.maybePop(context);
+    if (didPop || !mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainShell()),
+    );
+  }
+
   ProductModel _buildCurrentProduct() {
     return ProductModel(
       id: 'prod_${DateTime.now().microsecondsSinceEpoch}',
@@ -294,7 +334,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
           _defaultOnboardingPrice,
       unit: _unitFromLabel(_selectedUnitLabel),
       shelf: 0,
-      currency: 'NGN',
+      currency: _selectedCurrency == r'$' ? 'USD' : 'NGN',
     );
   }
 
@@ -307,6 +347,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     _selectedTypeLabel = 'Pastries';
     _selectedUnitLabel = 'PCS';
     _selectedShelfLifeUnit = 'hours';
+    _selectedCurrency = 'NGN';
     _persistDraft();
   }
 
@@ -326,35 +367,94 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     );
   }
 
+  void _removeQueuedProductAt(int index) {
+    if (index < 0 || index >= _queuedProducts.length) return;
+
+    final removed = _queuedProducts[index];
+    setState(() {
+      _queuedProducts.removeAt(index);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Removed ${removed.name} from queue'),
+        backgroundColor: _brandPrimary,
+      ),
+    );
+  }
+
   Future<void> _saveCurrentToApi() async {
-    if (!_formKey.currentState!.validate()) return;
+    final List<ProductModel> toSubmit = List<ProductModel>.from(
+      _queuedProducts,
+    );
+
+    final hasCurrentInput =
+        _nameController.text.trim().isNotEmpty ||
+        _quantityController.text.trim().isNotEmpty;
+
+    if (hasCurrentInput) {
+      if (!_formKey.currentState!.validate()) return;
+      toSubmit.add(_buildCurrentProduct());
+    }
+
+    if (toSubmit.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add at least one product before saving'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final hasBusiness = await _ensureBusinessReady();
+    if (!mounted) return;
+    if (!hasBusiness) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create business details before saving inventory.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _submitting = true);
 
     final inventory = context.read<InventoryProvider>();
-    final ok = await inventory.addProduct(_buildCurrentProduct());
+    var failedCount = 0;
+    for (final product in toSubmit) {
+      final ok = await inventory.addProduct(product);
+      if (!ok) failedCount++;
+    }
+    final successCount = toSubmit.length - failedCount;
 
     if (!mounted) return;
 
     setState(() {
       _submitting = false;
-      if (ok) {
+      _lastServerSavedCount = successCount;
+      if (failedCount == 0) {
+        _queuedProducts.clear();
         _resetCurrentForm();
-        _markOnboardingCompleted();
       }
     });
 
-    if (ok) {
+    if (failedCount == 0) {
+      await _markOnboardingCompleted();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product saved successfully'),
+        SnackBar(
+          content: Text('Saved $successCount product(s) to server'),
           backgroundColor: _brandPrimary,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(inventory.errorMessage ?? 'Failed to save product'),
+          content: Text(
+            'Saved $successCount/${toSubmit.length}. ${inventory.errorMessage ?? 'Some products failed.'}',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -386,6 +486,18 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       return;
     }
 
+    final hasBusiness = await _ensureBusinessReady();
+    if (!mounted) return;
+    if (!hasBusiness) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create business details before submitting inventory.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
 
     final inventory = context.read<InventoryProvider>();
@@ -397,7 +509,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
 
     if (!mounted) return;
 
-    setState(() => _submitting = false);
+    setState(() {
+      _submitting = false;
+      _lastServerSavedCount = toSubmit.length - failedCount;
+    });
 
     if (failedCount > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -433,7 +548,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: _submitting ? null : () => Navigator.maybePop(context),
+          onPressed: _submitting ? null : _handleClose,
         ),
         title: const Text(
           'PrepPal',
@@ -608,56 +723,6 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _label('Price (\$ / NGN)'),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _priceController,
-                            onChanged: (_) => _persistDraft(),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: _inputDecoration('e.g. 500').copyWith(
-                              prefixIcon: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  '\$',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                              prefixIconConstraints: const BoxConstraints(
-                                minWidth: 0,
-                                minHeight: 0,
-                              ),
-                              suffixText: 'NGN',
-                              suffixStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black54,
-                              ),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Required';
-                              }
-                              final parsed = double.tryParse(v.trim());
-                              if (parsed == null || parsed <= 0) {
-                                return 'Must be > 0';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
                           _label('Shelf life'),
                           const SizedBox(height: 8),
                           TextFormField(
@@ -709,6 +774,53 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Price'),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _priceController,
+                            onChanged: (_) => _persistDraft(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: _inputDecoration('e.g. 500'),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Required';
+                              }
+                              final parsed = double.tryParse(v.trim());
+                              if (parsed == null || parsed <= 0) {
+                                return 'Must be > 0';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedCurrency,
+                            decoration: _inputDecoration(''),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'NGN',
+                                child: Text('NGN'),
+                              ),
+                              DropdownMenuItem(value: r'$', child: Text(r'$')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _selectedCurrency = v);
+                                _persistDraft();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -734,6 +846,65 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                       style: const TextStyle(
                         color: Colors.grey,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...List.generate(_queuedProducts.length, (index) {
+                    final item = _queuedProducts[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F7F7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${item.quantityAvailable.toStringAsFixed(item.quantityAvailable % 1 == 0 ? 0 : 2)} ${item.unit.name.toUpperCase()}',
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete product',
+                            onPressed: _submitting
+                                ? null
+                                : () => _removeQueuedProductAt(index),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+                if (_lastServerSavedCount > 0) ...[
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Saved to server: $_lastServerSavedCount product(s)',
+                      style: const TextStyle(
+                        color: _brandPrimary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

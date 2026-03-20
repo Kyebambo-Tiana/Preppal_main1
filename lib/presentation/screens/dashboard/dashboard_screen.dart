@@ -364,6 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final business = context.watch<BusinessProvider>().currentBusiness;
     final inventory = context.watch<InventoryProvider>();
     final dashboard = context.watch<DashboardProvider>();
+    final forecast = context.watch<ForecastProvider>();
 
     // Keep dashboard synced whenever inventory rebuilds
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -399,9 +400,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    //Stats Row
-                    _StatsRow(inventory: inventory),
-                    const SizedBox(height: 16),
+                    _DemandForecastCard(
+                      forecastPoints: _buildDashboardForecastPoints(
+                        forecast.sevenDayForecast,
+                      ),
+                      totalPoints: forecast.sevenDayForecast.length,
+                    ),
+                    const SizedBox(height: 18),
 
                     //Daily Alert Section
                     _buildSectionHeader(
@@ -454,11 +459,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
 
                     const SizedBox(height: 16),
-
-                    //Today's Sales Summary
-                    _buildSalesSummaryCard(dashboard),
-
-                    const SizedBox(height: 24),
 
                     //Bottom Action Buttons
                     Row(
@@ -648,80 +648,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // NEW: real sales card
-  Widget _buildSalesSummaryCard(DashboardProvider dashboard) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const DailySalesReportScreen()),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Today Sales',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            dashboard.isLoadingSales
-                ? const SizedBox(
-                    height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    // REAL value from API
-                    dashboard.todayRevenueFormatted,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  dashboard.revenueIsUp
-                      ? Icons.arrow_upward
-                      : Icons.arrow_downward,
-                  color: dashboard.revenueIsUp ? Colors.green : Colors.red,
-                  size: 14,
-                ),
-                const SizedBox(width: 4),
-                // ✅ REAL change % vs yesterday
-                Text(
-                  dashboard.revenueChangeLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: dashboard.revenueIsUp ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmptyCard(String message) {
     return Container(
       width: double.infinity,
@@ -783,6 +709,337 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+}
+
+List<_ForecastPlotPoint> _buildDashboardForecastPoints(
+  List<Map<String, dynamic>> rawPoints,
+) {
+  const labels = ['6am', '9am', '12 noon', '3pm', '6pm'];
+  const placeholders = [
+    {'actual': 22.0, 'predicted': 30.0},
+    {'actual': 35.0, 'predicted': 48.0},
+    {'actual': 48.0, 'predicted': 60.0},
+    {'actual': 24.0, 'predicted': 35.0},
+    {'actual': 12.0, 'predicted': 18.0},
+  ];
+
+  if (rawPoints.isEmpty) {
+    return List<_ForecastPlotPoint>.generate(
+      labels.length,
+      (index) => _ForecastPlotPoint(
+        label: labels[index],
+        actual: placeholders[index]['actual']!,
+        predicted: placeholders[index]['predicted']!,
+      ),
+      growable: false,
+    );
+  }
+
+  final normalized = <Map<String, dynamic>>[];
+  final sourceLastIndex = rawPoints.length - 1;
+  final targetLastIndex = labels.length - 1;
+
+  for (var i = 0; i <= targetLastIndex; i++) {
+    final mappedIndex = ((i * sourceLastIndex) / targetLastIndex).round();
+    normalized.add(rawPoints[mappedIndex.clamp(0, sourceLastIndex)]);
+  }
+
+  return List<_ForecastPlotPoint>.generate(
+    labels.length,
+    (index) => _ForecastPlotPoint(
+      label: labels[index],
+      actual: _dashboardToDouble(normalized[index]['actual']),
+      predicted: _dashboardToDouble(normalized[index]['predicted']),
+    ),
+    growable: false,
+  );
+}
+
+double _dashboardToDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value.trim()) ?? 0.0;
+  return 0.0;
+}
+
+class _ForecastPlotPoint {
+  final String label;
+  final double actual;
+  final double predicted;
+
+  const _ForecastPlotPoint({
+    required this.label,
+    required this.actual,
+    required this.predicted,
+  });
+}
+
+class _DemandForecastCard extends StatelessWidget {
+  final List<_ForecastPlotPoint> forecastPoints;
+  final int totalPoints;
+
+  const _DemandForecastCard({
+    required this.forecastPoints,
+    required this.totalPoints,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDDE7E3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Center(
+            child: Text(
+              "Today's demand forecast",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF252525),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _LegendItem(color: Color(0xFF2A8A7B), label: 'Predicted Sales'),
+              SizedBox(width: 24),
+              _LegendItem(color: Color(0xFFE1A31B), label: 'Actual Sales'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'View all ($totalPoints)',
+              style: TextStyle(
+                color: kDashboardPrimary.withValues(alpha: 0.9),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 240,
+            child: _DemandForecastLineChart(points: forecastPoints),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendItem({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF4B5563),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DemandForecastLineChart extends StatelessWidget {
+  final List<_ForecastPlotPoint> points;
+
+  const _DemandForecastLineChart({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = points
+        .expand((point) => [point.actual, point.predicted])
+        .fold<double>(0, (max, value) => value > max ? value : max);
+    final chartMax = ((maxValue <= 0 ? 100 : maxValue) / 25).ceil() * 25.0;
+    final yAxisValues = [0, 25, 50, 75, 100]
+        .map((v) => v > chartMax ? chartMax : v.toDouble())
+        .toList(growable: false);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 28,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: yAxisValues.reversed
+                .map(
+                  (value) => Text(
+                    value.round().toString(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF555555),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            children: [
+              Expanded(
+                child: CustomPaint(
+                  painter: _DemandForecastPainter(
+                    points: points,
+                    chartMax: chartMax,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: points
+                    .map(
+                      (point) => Expanded(
+                        child: Text(
+                          point.label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DemandForecastPainter extends CustomPainter {
+  final List<_ForecastPlotPoint> points;
+  final double chartMax;
+
+  const _DemandForecastPainter({required this.points, required this.chartMax});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+
+    const leftInset = 8.0;
+    const topInset = 10.0;
+    const bottomInset = 14.0;
+    final chartWidth = size.width - leftInset;
+    final chartHeight = size.height - topInset - bottomInset;
+    final dx = chartWidth / (points.length - 1);
+
+    final axisPaint = Paint()
+      ..color = const Color(0xFF3F3F46)
+      ..strokeWidth = 1.3;
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE7ECEA)
+      ..strokeWidth = 1;
+
+    for (var i = 0; i < 4; i++) {
+      final y = topInset + (chartHeight * (i / 4));
+      canvas.drawLine(Offset(leftInset, y), Offset(size.width, y), gridPaint);
+    }
+
+    final xAxisY = topInset + chartHeight;
+    canvas.drawLine(
+      Offset(leftInset, topInset),
+      Offset(leftInset, xAxisY),
+      axisPaint,
+    );
+    canvas.drawLine(
+      Offset(leftInset, xAxisY),
+      Offset(size.width, xAxisY),
+      axisPaint,
+    );
+
+    List<Offset> buildOffsets(
+      double Function(_ForecastPlotPoint point) selector,
+    ) {
+      return List<Offset>.generate(points.length, (index) {
+        final value = selector(points[index]).clamp(0, chartMax);
+        final x = leftInset + (dx * index);
+        final y = topInset + chartHeight - ((value / chartMax) * chartHeight);
+        return Offset(x, y);
+      }, growable: false);
+    }
+
+    final predictedOffsets = buildOffsets((point) => point.predicted);
+    final actualOffsets = buildOffsets((point) => point.actual);
+
+    final predictedPaint = Paint()
+      ..color = const Color(0xFF2A8A7B)
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke;
+    final actualPaint = Paint()
+      ..color = const Color(0xFFE1A31B)
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawPath(_smoothPath(predictedOffsets), predictedPaint);
+    canvas.drawPath(_smoothPath(actualOffsets), actualPaint);
+
+    final predictedDotPaint = Paint()..color = const Color(0xFF2A8A7B);
+    final actualDotPaint = Paint()..color = const Color(0xFFE1A31B);
+
+    for (final point in predictedOffsets) {
+      canvas.drawCircle(point, 3.2, predictedDotPaint);
+    }
+    for (final point in actualOffsets) {
+      canvas.drawCircle(point, 3.2, actualDotPaint);
+    }
+  }
+
+  Path _smoothPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final current = points[i];
+      final next = points[i + 1];
+      final controlX1 = current.dx + ((next.dx - current.dx) * 0.35);
+      final controlX2 = current.dx + ((next.dx - current.dx) * 0.7);
+      path.cubicTo(controlX1, current.dy, controlX2, next.dy, next.dx, next.dy);
+    }
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant _DemandForecastPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.chartMax != chartMax;
   }
 }
 
@@ -1212,104 +1469,5 @@ class _DashboardHeader extends StatelessWidget {
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}, ${now.year}';
-  }
-}
-
-// ── Stats Row (unchanged) ─────────────────────────────────────
-
-class _StatsRow extends StatelessWidget {
-  final InventoryProvider inventory;
-  const _StatsRow({required this.inventory});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatCard(
-          label: 'Total Products',
-          value: '${inventory.totalProducts}',
-          icon: Icons.inventory_2,
-          color: kDashboardPrimary,
-        ),
-        const SizedBox(width: 12),
-        _StatCard(
-          label: 'Low Stock',
-          value: '${inventory.lowStockProducts.length}',
-          icon: Icons.warning_amber,
-          color: Colors.orange,
-        ),
-        const SizedBox(width: 12),
-        _StatCard(
-          label: 'Expiring Soon',
-          value: '${inventory.expiringSoonProducts.length}',
-          icon: Icons.schedule,
-          color: Colors.red,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

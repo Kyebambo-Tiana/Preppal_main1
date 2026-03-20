@@ -42,11 +42,12 @@ void main() async {
   final signupUseCase = SignupUseCase(repository: authRepository);
 
   // ── Inventory chain
-  // Uses real remote DS now
   final inventoryDataSource = serviceLocator.inventoryRemoteDataSource;
   final inventoryRepository = InventoryRepositoryImpl(
     remoteDataSource: inventoryDataSource,
   );
+
+  final forecastDataSource = serviceLocator.forecastRemoteDataSource;
 
   runApp(
     MultiProvider(
@@ -76,8 +77,7 @@ void main() async {
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) =>
-              ForecastProvider(serviceLocator.forecastRemoteDataSource),
+          create: (_) => ForecastProvider(forecastDataSource),
         ),
         ChangeNotifierProvider(create: (_) => DailySalesProvider()),
         ChangeNotifierProvider(create: (_) => AlertsProvider()),
