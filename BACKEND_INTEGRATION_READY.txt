@@ -1,37 +1,51 @@
-Hey! Backend integration is ready for testing. Here's what's wired up:
+PrepPal backend integration is ready for demo/testing.
 
-Auth Flow (Complete & Connected to Backend):
-1. Login Screen → Calls /api/auth/login with email & password
-2. Signup Screen → Calls /api/auth/register with username, email & password  
-3. Business Details Screen → Calls /api/business/register with business info
+Active backend configuration (source of truth: lib/core/network/api_constants.dart)
 
-What Each Endpoint Should Return:
+Main API base URL
+- https://preppal-backend-px1d.onrender.com
 
-Login/Signup: 
-{
-  "token": "auth_token_here",
-  "user": {
-    "id": "user_id",
-    "email": "user@email.com",
-    "username": "username",
-    "business_name": "optional"
-  }
-}
+ML forecast base URL
+- https://preppal-2mb4.onrender.com
+- Predict endpoint: /api/predict
 
-Business Register:
-{
-  "success": true,
-  "message": "Business registered"
-}
+Current auth endpoints
+- Login: /api/v1/auth/login
+- Signup: /api/v1/auth/signup
+- Forgot password: /api/v1/auth/forgot-password
+- Reset password: /api/v1/auth/reset-password
 
-Base URL: https://prepal-backend-p214-demosites.com
+Current business endpoints
+- Create: /api/v1/business/create
+- Get all (for signed-in user): /api/v1/business
+- Update: /api/v1/business/update/{id}
 
-All endpoints have:
-- Auto token management in headers (Bearer token)
-- 30-second timeout
-- Proper error handling & user feedback
-- Loading states on all buttons
+Current inventory endpoints
+- Create: /api/v1/inventory/create
+- Get by business: /api/v1/inventory/business/{businessId}
+- Update/Delete: /api/v1/inventory/{id}
 
-Ready to test end-to-end flow: Login → Signup → Business Details → Dashboard
+Current daily sales endpoints
+- Get all: /api/v1/daily-sales/sales
+- Create: /api/v1/daily-sales/create
+- Get by business: /api/v1/daily-sales/business/{businessId}
 
-Any issues, check the app logs or let me know!
+Current alerts endpoints
+- Get all: /api/v1/alerts
+- Get by business: /api/v1/alerts/business/{businessId}
+
+Network behavior in app
+- Auth token handled automatically with Bearer header.
+- Retry enabled for transient network issues (up to 2 retries).
+- Timeout budget is connection + receive time from ApiConstants.
+
+Forecast integration notes
+- Demand forecast UI uses the ML /api/predict endpoint.
+- Partial ML failures are handled gracefully so the screen still renders.
+
+Recommended demo flow
+1. Login or sign up.
+2. Complete business details.
+3. Add inventory.
+4. Open Forecast tab and refresh.
+5. Open Dashboard/Alerts to show downstream impact.

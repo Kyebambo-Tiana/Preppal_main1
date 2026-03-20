@@ -10,11 +10,25 @@ CURRENT STATUS: FULLY WIRED TO BACKEND
 All screens are connected to the live backend API.
 No mock, fake, or demo datasources remain in the codebase.
 All local state persists across logout and full app restarts.
-Backend wiring audit re-verified across all screens on March 16, 2026.
+Backend wiring audit re-verified across all screens on March 20, 2026.
 
 Backend APIs
   Main backend:  https://preppal-backend-px1d.onrender.com
   ML forecast:   https://preppal-2mb4.onrender.com/api/predict
+
+Demo readiness (March 20, 2026)
+  - Workspace analyzer status: clean (no current errors)
+  - Automated tests: 6/6 passing
+  - Forecast module: live ML-backed with graceful fallback for partial endpoint failures
+  - Documentation status: backend endpoint notes aligned with active ApiConstants
+  - Submission requirement: provide a public live project link (no downloads/restricted access)
+
+Judge demo script (3-4 minutes)
+  1. Open app and show successful login/session restore.
+  2. Show business and inventory data loaded from backend.
+  3. Open Demand Forecast and highlight ML-backed predictions + fallback behavior.
+  4. Open Dashboard and Alerts to show business impact from live data.
+  5. Close with reliability points: analyzer clean, tests passing, and persistent cache behavior.
 
 =========================================
 COMPLETED FEATURES
@@ -33,7 +47,7 @@ COMPLETED FEATURES
    - BusinessDetailsScreen prefills from saved business on every open
    - BusinessProvider creates or updates business via /api/v1/business
    - Business list cached locally per signed-in user (SharedPreferences)
-  - MainShell loads businesses first on app shell init (sets ApiClient businessId)
+    - MainShell loads businesses first on app shell init (sets ApiClient businessId)
    - Cache rehydrates immediately after logout/login - no re-entry required
    - Empty backend 404 does NOT overwrite valid local cache
    - ApiClient businessId and businessType updated whenever cache hydrates
@@ -47,7 +61,7 @@ COMPLETED FEATURES
    - Units: KG, G, L, ML, PCS, DOZEN, OTHERS
    - Add Another queues products locally before batch submit
    - Save and Submit POSTs each product to /api/v1/inventory with businessId
-  - Onboarding skip option removed (users complete this step before dashboard)
+    - Onboarding skip option removed (users complete this step before dashboard)
    - Completion flag and draft persisted per user in SharedPreferences
    - Draft restored on every open; completion flag skips screen on next visit
    - Default price of 1.0 NGN used (backend requires price > 0; UI captures core fields only)
@@ -91,7 +105,7 @@ COMPLETED FEATURES
 
 8. ALERTS (AlertsScreen)
    - Backend alerts via /api/v1/alerts with businessId
-  - Alerts are lazy-loaded when Alerts tab/screen opens (not preloaded in MainShell init)
+    - Alerts are lazy-loaded when Alerts tab/screen opens (not preloaded in MainShell init)
    - Treats 404 / empty / non-JSON responses as no-data (not error)
 
 9. PERSISTENCE (survives logout, app close, device restart)
@@ -104,13 +118,8 @@ COMPLETED FEATURES
 REMAINING / FUTURE WORK
 =========================================
 
-KNOWN ANALYZER WARNINGS (non-blocking, app builds and runs)
-  - business_details_screen.dart: unused import (main_shell), unused field
-    _kInventoryOnboardingCompleted, unreferenced _scopedPrefsKey method
-  - dashboard_screen.dart: unused import (demand_forecast_screen), unused local
-    variable dashboardForecastData, unreferenced _buildLegendItem method,
-    unreferenced _LineChartPainter class and its isPlaceholder parameter
-  - demand_forecast_screen.dart: use_build_context_synchronously at line 206
+KNOWN ANALYZER WARNINGS
+  - None at last verification (workspace analyzer clean on March 20, 2026)
 
 FEATURES NOT YET IMPLEMENTED
   - Profile / Settings screen (view and edit user account details)
@@ -123,16 +132,25 @@ FEATURES NOT YET IMPLEMENTED
   - Export sales data to CSV / PDF
 
 TESTING
-  - Unit tests for all providers
-  - Unit tests for datasources with API stubs
-  - Widget tests for key screens (login, business details, inventory add)
-  - Integration test for full onboarding flow
+  - Current automated tests passing: 6/6
+  - Implemented unit tests:
+      - AuthProvider initial unauthenticated state
+      - ForecastProvider success path (data load + accuracy normalization)
+      - ForecastProvider partial-failure fallback behavior
+      - ForecastProvider multi-endpoint failure fallback behavior
+  - Remaining testing work (prioritized):
+      - Demo-week priority: widget tests for login, business details, and inventory add flows
+      - Demo-week priority: one integration smoke test for the onboarding happy path
+      - Next phase: unit tests for all remaining providers
+      - Next phase: datasource unit tests with API stubs
 
 PERFORMANCE AND SECURITY
-  - Secure token storage (flutter_secure_storage) instead of plain SharedPreferences
-  - Cache expiration logic (stale-after-X-hours eviction)
-  - SSL certificate pinning
-  - Input sanitisation on all free-text form fields
+  - Demo-week hardening:
+      - Input sanitisation on all free-text form fields
+      - Basic cache expiration logic (stale-after-X-hours eviction)
+  - Post-demo hardening:
+      - Secure token storage (flutter_secure_storage) instead of plain SharedPreferences
+      - SSL certificate pinning
 
 =========================================
 SUMMARY STATISTICS
