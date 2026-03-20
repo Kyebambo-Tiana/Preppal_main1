@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
-import 'package:prepal2/presentation/providers/business_provider.dart';
+import 'package:prepal2/presentation/navigation/app_flow.dart';
 import 'package:prepal2/presentation/screens/auth/login_screen.dart';
 import 'package:prepal2/presentation/screens/auth/signup_screen.dart';
-import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
-import 'package:prepal2/presentation/screens/main_shell.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-const kLogoTintColor = Color(0xFFFF6B35);
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,9 +13,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const _kHasSeenWelcome = 'has_seen_welcome';
-  bool _showYellowSplash = false;
-
   @override
   void initState() {
     super.initState();
@@ -29,49 +21,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _runSplashSequence() async {
     const logoSplashDuration = Duration(seconds: 2);
-    const yellowSplashDuration = Duration(seconds: 6);
 
     await Future.delayed(logoSplashDuration);
     if (!mounted) return;
 
-    setState(() {
-      _showYellowSplash = true;
-    });
-
-    await Future.delayed(yellowSplashDuration);
-    if (!mounted) return;
-
     final authProvider = context.read<AuthProvider>();
-    final businessProvider = context.read<BusinessProvider>();
 
     await _waitForAuthResolution(authProvider);
     if (!mounted) return;
 
     if (authProvider.status == AuthStatus.authenticated) {
-      await businessProvider.loadBusinesses();
+      final destination = await AppFlow.nextScreenAfterAuth(context);
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => businessProvider.hasBusiness
-              ? const MainShell()
-              : const BusinessDetailsScreen(),
-        ),
-      );
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenWelcome = prefs.getBool(_kHasSeenWelcome) ?? false;
-
-    if (hasSeenWelcome) {
       Navigator.of(
         context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      ).pushReplacement(MaterialPageRoute(builder: (_) => destination));
       return;
     }
-
-    await prefs.setBool(_kHasSeenWelcome, true);
 
     Navigator.of(
       context,
@@ -91,54 +58,10 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _showYellowSplash
-          ? const Color(0xFFF0B516)
-          : Colors.white,
-      body: _showYellowSplash
-          ? LayoutBuilder(
-              builder: (context, constraints) {
-                final logoSize = constraints.maxWidth * 0.45;
-
-                return Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Image.asset(
-                        'assets/app_splash.png',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Align(
-                      alignment: const Alignment(0, -0.47),
-                      child: Container(
-                        width: logoSize + 8,
-                        height: logoSize + 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Image.asset(
-                          'assets/logo.png',
-                          width: logoSize,
-                          height: logoSize,
-                          color: kLogoTintColor,
-                          colorBlendMode: BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            )
-          : Center(
-              child: Image.asset(
-                'assets/logo.png',
-                width: 170,
-                height: 170,
-                color: kLogoTintColor,
-                colorBlendMode: BlendMode.srcIn,
-              ),
-            ),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Image.asset('assets/logo.png', width: 110, height: 110),
+      ),
     );
   }
 }
@@ -168,13 +91,7 @@ class WelcomeScreen extends StatelessWidget {
                       const Spacer(flex: 2),
 
                       // PrepPal Logo
-                      Image.asset(
-                        'assets/logo.png',
-                        width: 200,
-                        height: 200,
-                        color: kLogoTintColor,
-                        colorBlendMode: BlendMode.srcIn,
-                      ),
+                      Image.asset('assets/logo.png', width: 200, height: 200),
 
                       const SizedBox(height: 16),
 

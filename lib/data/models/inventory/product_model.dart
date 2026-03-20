@@ -75,6 +75,29 @@ class ProductModel {
     return null;
   }
 
+  static String _decodeImageUrl(Object? raw) {
+    if (raw is String) return raw.trim();
+    return '';
+  }
+
+  static Object? _readImageUrl(Map json, String _) {
+    const keys = [
+      'imageUrl',
+      'image_url',
+      'image',
+      'photo',
+      'photoUrl',
+      'thumbnail',
+    ];
+    for (final key in keys) {
+      final raw = json[key];
+      if (raw is String && raw.trim().isNotEmpty) {
+        return raw;
+      }
+    }
+    return null;
+  }
+
   @JsonKey(defaultValue: '')
   final String id;
   @JsonKey(defaultValue: '')
@@ -121,6 +144,13 @@ class ProductModel {
   @JsonKey(name: 'is_active', defaultValue: true)
   final bool isActive;
 
+  @JsonKey(
+    defaultValue: '',
+    fromJson: _decodeImageUrl,
+    readValue: _readImageUrl,
+  )
+  final String imageUrl;
+
   const ProductModel({
     required this.id,
     required this.name,
@@ -135,6 +165,7 @@ class ProductModel {
     this.currency = 'NGN',
     this.lowStockThreshold,
     this.isActive = true,
+    this.imageUrl = '',
   });
 
   // --- Computed Properties (no JSON, derived from data) ---
@@ -170,6 +201,7 @@ class ProductModel {
     String? currency,
     double? lowStockThreshold,
     bool? isActive,
+    String? imageUrl,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -184,6 +216,7 @@ class ProductModel {
       currency: currency ?? this.currency,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       isActive: isActive ?? this.isActive,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 

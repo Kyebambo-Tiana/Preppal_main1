@@ -18,7 +18,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   static const _brandPrimary = Color(0xFF0F7A6B);
   static const _brandPrimaryDark = Color(0xFF0F7A6B);
   static const _brandSoft = Color(0xFFC8E6C9);
-  static const _surfaceSoft = Color(0xFFF5E1E8);
+  static const _surfaceSoft = Color(0xFFEEF7C0);
 
   static const String _kInventoryOnboardingCompleted =
       'inventory_onboarding_completed';
@@ -36,10 +36,8 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   final List<String> _businessTypes = [
     'Cafe',
     'Restaurant',
-    'Bakery',
-    'Catering',
-    'Food Truck',
-    'Home Kitchen',
+    'Hotel kitchen',
+    'Private Kitchen',
     'Others',
   ];
 

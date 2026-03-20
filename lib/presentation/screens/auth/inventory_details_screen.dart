@@ -16,7 +16,6 @@ class InventoryDetailsScreen extends StatefulWidget {
 
 class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   static const _brandPrimary = Color(0xFF0F7A6B);
-  static const _brandPrimaryDark = Color(0xFF0F7A6B);
   static const _brandSoft = Color(0xFFC8E6C9);
   static const _surfaceSoft = Color(0xFFF5E1E8);
 
@@ -29,16 +28,22 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   static const String _kDraftType = 'inventory_draft_type';
   static const String _kDraftUnit = 'inventory_draft_unit';
   static const String _kDraftDate = 'inventory_draft_date';
+  static const String _kDraftPrice = 'inventory_draft_price';
+  static const String _kDraftShelfLife = 'inventory_draft_shelf_life';
+  static const String _kDraftShelfLifeUnit = 'inventory_draft_shelf_life_unit';
   static const String _kAuthUserKey = 'auth_user';
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _shelfLifeController = TextEditingController();
 
   final List<ProductModel> _queuedProducts = [];
 
   String _selectedTypeLabel = 'Pastries';
   String _selectedUnitLabel = 'PCS';
+  String _selectedShelfLifeUnit = 'hours';
   DateTime _productionDate = DateTime.now();
   bool _submitting = false;
 
@@ -94,6 +99,8 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   void dispose() {
     _nameController.dispose();
     _quantityController.dispose();
+    _priceController.dispose();
+    _shelfLifeController.dispose();
     super.dispose();
   }
 
@@ -105,6 +112,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     final unitKey = _scopedPrefsKey(_kDraftUnit, prefs);
     final dateKey = _scopedPrefsKey(_kDraftDate, prefs);
 
+    final priceKey = _scopedPrefsKey(_kDraftPrice, prefs);
+    final shelfLifeKey = _scopedPrefsKey(_kDraftShelfLife, prefs);
+    final shelfLifeUnitKey = _scopedPrefsKey(_kDraftShelfLifeUnit, prefs);
+
     final cachedName =
         prefs.getString(nameKey) ?? prefs.getString(_kDraftName) ?? '';
     final cachedQuantity =
@@ -112,9 +123,26 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     final cachedType = prefs.getString(typeKey) ?? prefs.getString(_kDraftType);
     final cachedUnit = prefs.getString(unitKey) ?? prefs.getString(_kDraftUnit);
     final cachedDate = prefs.getString(dateKey) ?? prefs.getString(_kDraftDate);
+    final cachedPrice =
+        prefs.getString(priceKey) ?? prefs.getString(_kDraftPrice) ?? '';
+    final cachedShelfLife =
+        prefs.getString(shelfLifeKey) ??
+        prefs.getString(_kDraftShelfLife) ??
+        '';
+    final cachedShelfLifeUnit =
+        prefs.getString(shelfLifeUnitKey) ??
+        prefs.getString(_kDraftShelfLifeUnit) ??
+        'hours';
 
     _nameController.text = cachedName;
     _quantityController.text = cachedQuantity;
+    _priceController.text = cachedPrice;
+    _shelfLifeController.text = cachedShelfLife;
+
+    const validShelfLifeUnits = ['hours', 'days', 'months', 'years'];
+    if (validShelfLifeUnits.contains(cachedShelfLifeUnit)) {
+      _selectedShelfLifeUnit = cachedShelfLifeUnit;
+    }
 
     if (cachedType != null && _productTypes.contains(cachedType)) {
       _selectedTypeLabel = cachedType;
@@ -156,6 +184,18 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       _scopedPrefsKey(_kDraftDate, prefs),
       _productionDate.toIso8601String(),
     );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftPrice, prefs),
+      _priceController.text.trim(),
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftShelfLife, prefs),
+      _shelfLifeController.text.trim(),
+    );
+    await prefs.setString(
+      _scopedPrefsKey(_kDraftShelfLifeUnit, prefs),
+      _selectedShelfLifeUnit,
+    );
   }
 
   Future<void> _markOnboardingCompleted() async {
@@ -169,6 +209,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   ProductCategory _categoryFromLabel(String label) {
     switch (label) {
       case 'Pastries':
+      case 'Bakery':
         return ProductCategory.bakery;
       case 'Beverages':
         return ProductCategory.beverages;
@@ -178,8 +219,6 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
         return ProductCategory.snacks;
       case 'Produce':
         return ProductCategory.produce;
-      case 'Bakery':
-        return ProductCategory.bakery;
       case 'Meat':
         return ProductCategory.meat;
       case 'Spices':
@@ -229,10 +268,30 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
       name: _nameController.text.trim(),
       category: _categoryFromLabel(_selectedTypeLabel),
       productionDate: _productionDate,
-      shelfLife: _defaultShelfLifeHours,
+      shelfLife: () {
+        final shelfLifeValue =
+            int.tryParse(_shelfLifeController.text.trim()) ??
+            _defaultShelfLifeHours;
+        int shelfLife;
+        switch (_selectedShelfLifeUnit) {
+          case 'days':
+            shelfLife = shelfLifeValue * 24;
+            break;
+          case 'months':
+            shelfLife = shelfLifeValue * 24 * 30;
+            break;
+          case 'years':
+            shelfLife = shelfLifeValue * 24 * 365;
+            break;
+          default: // hours
+            shelfLife = shelfLifeValue;
+        }
+        return shelfLife;
+      }(),
       quantityAvailable: double.parse(_quantityController.text.trim()),
-      // Backend requires price > 0; onboarding captures core details first.
-      price: _defaultOnboardingPrice,
+      price:
+          double.tryParse(_priceController.text.trim()) ??
+          _defaultOnboardingPrice,
       unit: _unitFromLabel(_selectedUnitLabel),
       shelf: 0,
       currency: 'NGN',
@@ -242,9 +301,12 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   void _resetCurrentForm() {
     _nameController.clear();
     _quantityController.clear();
+    _priceController.clear();
+    _shelfLifeController.clear();
     _productionDate = DateTime.now();
     _selectedTypeLabel = 'Pastries';
     _selectedUnitLabel = 'PCS';
+    _selectedShelfLifeUnit = 'hours';
     _persistDraft();
   }
 
@@ -539,6 +601,116 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Price (\$ / NGN)'),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _priceController,
+                            onChanged: (_) => _persistDraft(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: _inputDecoration('e.g. 500').copyWith(
+                              prefixIcon: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  '\$',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              prefixIconConstraints: const BoxConstraints(
+                                minWidth: 0,
+                                minHeight: 0,
+                              ),
+                              suffixText: 'NGN',
+                              suffixStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Required';
+                              }
+                              final parsed = double.tryParse(v.trim());
+                              if (parsed == null || parsed <= 0) {
+                                return 'Must be > 0';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Shelf life'),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _shelfLifeController,
+                            onChanged: (_) => _persistDraft(),
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration('e.g. 7'),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Required';
+                              }
+                              final parsed = int.tryParse(v.trim());
+                              if (parsed == null || parsed <= 0) {
+                                return 'Must be > 0';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedShelfLifeUnit,
+                            decoration: _inputDecoration(''),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'hours',
+                                child: Text('Hours'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'days',
+                                child: Text('Days'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'months',
+                                child: Text('Months'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'years',
+                                child: Text('Years'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _selectedShelfLifeUnit = v);
+                                _persistDraft();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 Center(
                   child: ElevatedButton.icon(
@@ -574,7 +746,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         onPressed: _submitting ? null : _saveCurrentToApi,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _brandSoft,
-                          foregroundColor: _brandPrimaryDark,
+                          foregroundColor: _brandPrimary,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -586,7 +758,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  color: _brandPrimaryDark,
+                                  color: _brandPrimary,
                                   strokeWidth: 2,
                                 ),
                               )

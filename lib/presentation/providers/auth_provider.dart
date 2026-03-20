@@ -109,6 +109,37 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> forgotPassword(String email) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await authRepository.forgotPassword(email);
+      return true;
+    } catch (e) {
+      _errorMessage = _clean(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String password,
+  }) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await authRepository.resetPassword(email: email, password: password);
+      return true;
+    } catch (e) {
+      _errorMessage = _clean(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();

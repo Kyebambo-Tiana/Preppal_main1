@@ -8,6 +8,9 @@ import 'package:prepal2/presentation/providers/auth_provider.dart';
 // simple fake implementations to satisfy dependencies
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<void> forgotPassword(String email) async {}
+
+  @override
   Future<UserModel?> getLoggedInUser() async => null;
 
   @override
@@ -27,6 +30,12 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String password,
+  }) async {}
 }
 
 void main() {

@@ -33,6 +33,9 @@ ProductModel _$ProductModelFromJson(Map<String, dynamic> json) => ProductModel(
     json['low_stock_threshold'],
   ),
   isActive: json['is_active'] as bool? ?? true,
+  imageUrl: ProductModel._decodeImageUrl(
+    ProductModel._readImageUrl(json, 'imageUrl'),
+  ),
 );
 
 Map<String, dynamic> _$ProductModelToJson(ProductModel instance) =>
@@ -49,6 +52,7 @@ Map<String, dynamic> _$ProductModelToJson(ProductModel instance) =>
       'currency': instance.currency,
       'low_stock_threshold': instance.lowStockThreshold,
       'is_active': instance.isActive,
+      'imageUrl': instance.imageUrl,
     };
 
 const _$ProductCategoryEnumMap = {

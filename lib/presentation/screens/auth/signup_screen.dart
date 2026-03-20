@@ -3,10 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/auth_provider.dart';
-import 'package:prepal2/presentation/providers/business_provider.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
-import 'package:prepal2/presentation/screens/main_shell.dart';
-import 'package:prepal2/presentation/screens/splash/splash_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -57,17 +54,10 @@ class _SignupScreenState extends State<SignupScreen> {
     );
 
     if (success && mounted) {
-      await context.read<BusinessProvider>().loadBusinesses();
-      if (!mounted) return;
-
-      final hasBusiness = context.read<BusinessProvider>().hasBusiness;
-
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (_) =>
-              hasBusiness ? const MainShell() : const BusinessDetailsScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const BusinessDetailsScreen()),
+        (route) => false,
       );
     }
   }
@@ -107,13 +97,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         const SizedBox(height: 24),
 
                         // PrepPal Logo
-                        Image.asset(
-                          'assets/logo.png',
-                          width: 120,
-                          height: 120,
-                          color: kLogoTintColor,
-                          colorBlendMode: BlendMode.srcIn,
-                        ),
+                        Image.asset('assets/logo.png', width: 120, height: 120),
 
                         const SizedBox(height: 24),
 
@@ -159,7 +143,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   color: Color(0xFFBDBDBD),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFE8DEF8),
+                                fillColor: const Color(0xFFFFE7D1),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -273,7 +257,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   color: Color(0xFFBDBDBD),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFE8DEF8),
+                                fillColor: const Color(0xFFFFE7D1),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -345,7 +329,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   color: Color(0xFFBDBDBD),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFE8DEF8),
+                                fillColor: const Color(0xFFFFE7D1),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,

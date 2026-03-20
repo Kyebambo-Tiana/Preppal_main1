@@ -20,13 +20,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const DemandForecastScreen(),
-    const InventoryListScreen(),
-    const AlertsScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -48,21 +41,33 @@ class _MainShellState extends State<MainShell> {
       final businessProvider = context.read<BusinessProvider>();
       if (businessProvider.hasBusiness) {
         final businessId = businessProvider.currentBusiness!.id;
-        await context.read<DailySalesProvider>().loadSalesForBusiness(
-          businessId,
-        );
-        if (!mounted) return;
-        await context.read<DashboardProvider>().loadSales(businessId);
-        if (!mounted) return;
-        await context.read<ForecastProvider>().loadForecastData();
+        // These requests are independent once businessId is available.
+        await Future.wait([
+          context.read<DailySalesProvider>().loadSalesForBusiness(businessId),
+          context.read<DashboardProvider>().loadSales(businessId),
+          context.read<ForecastProvider>().loadForecastData(),
+        ]);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const DashboardScreen(),
+      DemandForecastScreen(
+        onClose: () => setState(() => _currentIndex = 0),
+        onOpenAlerts: () => setState(() => _currentIndex = 3),
+      ),
+      InventoryListScreen(
+        onClose: () => setState(() => _currentIndex = 0),
+        onOpenAlerts: () => setState(() => _currentIndex = 3),
+      ),
+      const AlertsScreen(),
+    ];
+
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),

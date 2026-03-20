@@ -1,6 +1,6 @@
 =======================================
 PREPPAL MOBILE APP - DEVELOPMENT SUMMARY
-Last Updated: March 2026
+Last Updated: March 20, 2026
 =======================================
 
 ===========================================
@@ -60,6 +60,11 @@ COMPLETED FEATURES
    - Backend empty response does NOT overwrite existing local product cache
    - Low-stock, expiring-soon, and expired alerts computed from local inventory
    - Price validator enforces > 0 to avoid backend 422 errors
+   - Product avatar displays backend image URL (NetworkImage) when available
+   - Emoji + soft-color fallback via FoodVisuals when no image URL is present
+   - FoodVisuals maps 60+ Nigerian/common food keywords to emoji and background color
+   - imageUrl decoded from 6 server key variants: imageUrl, image_url, image, photo, photoUrl, thumbnail
+   - toApiJson() payload unchanged — imageUrl never sent on create/update requests
 
 5. DAILY SALES REPORT (DailySalesReportScreen)
    - Submits sales items via /api/v1/daily-sales with businessId
@@ -81,6 +86,8 @@ COMPLETED FEATURES
    - Sends positive price to avoid ML 422 errors
    - Handles mixed string/num/qualitative backend responses safely
    - Partial failure tolerant: empty forecast renders gracefully
+   - Product thumbnails show NetworkImage when URL available, FoodVisuals emoji fallback otherwise
+   - _resolveImageUrl checks same 6 key variants as ProductModel decoder
 
 8. ALERTS (AlertsScreen)
    - Backend alerts via /api/v1/alerts with businessId
@@ -96,6 +103,14 @@ COMPLETED FEATURES
 =========================================
 REMAINING / FUTURE WORK
 =========================================
+
+KNOWN ANALYZER WARNINGS (non-blocking, app builds and runs)
+  - business_details_screen.dart: unused import (main_shell), unused field
+    _kInventoryOnboardingCompleted, unreferenced _scopedPrefsKey method
+  - dashboard_screen.dart: unused import (demand_forecast_screen), unused local
+    variable dashboardForecastData, unreferenced _buildLegendItem method,
+    unreferenced _LineChartPainter class and its isPlaceholder parameter
+  - demand_forecast_screen.dart: use_build_context_synchronously at line 206
 
 FEATURES NOT YET IMPLEMENTED
   - Profile / Settings screen (view and edit user account details)
@@ -141,6 +156,11 @@ Remote datasources (6):
 Persistent cache stores (5):
   business, inventory, daily sales, dashboard revenue, onboarding draft
 
+Core utilities:
+  FoodVisuals (lib/core/utills/food_visuals.dart)
+    60+ food keyword → emoji + background color mappings
+    Used by InventoryListScreen and DemandForecastScreen as image fallback
+
 =========================================
 ARCHITECTURE
 =========================================
@@ -153,7 +173,7 @@ lib/
     utills/      Shared utilities
   data/
     datasources/ Remote datasource implementations (6 files)
-    models/      ProductModel, SaleModel, UserModel, BusinessModel
+    models/      ProductModel (+ imageUrl multi-key decoder), SaleModel, UserModel, BusinessModel
     repositories/ AuthRepositoryImpl, InventoryRepositoryImpl
   domain/
     repositories/ AuthRepository, InventoryRepository (abstract)

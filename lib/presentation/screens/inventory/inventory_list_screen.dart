@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:prepal2/presentation/providers/inventory_provider.dart';
 import 'package:prepal2/data/models/inventory/product_model.dart';
 import 'package:prepal2/presentation/screens/inventory/product_detail_screen.dart';
 import 'package:prepal2/presentation/screens/inventory/add_product_screen.dart';
+import 'package:prepal2/presentation/screens/alerts/alerts_screen.dart';
 import 'package:prepal2/presentation/screens/auth/business_details_screen.dart';
+import 'package:prepal2/core/utills/food_visuals.dart';
 
 const kInventoryPrimary = Color(0xFF0F7A6B);
 const kInventoryPrimaryLight = Color(0xFF168B7B);
+const kInventorySurface = Color(0xFFF5F2F4);
+const kInventoryCard = Color(0xFFFFFEFE);
+const kInventoryTextPrimary = Color(0xFF1F2937);
+const kInventoryTextSecondary = Color(0xFF7C8798);
 
 class InventoryListScreen extends StatefulWidget {
-  const InventoryListScreen({super.key});
+  final VoidCallback? onClose;
+  final VoidCallback? onOpenAlerts;
+
+  const InventoryListScreen({super.key, this.onClose, this.onOpenAlerts});
 
   @override
   State<InventoryListScreen> createState() => _InventoryListScreenState();
@@ -23,7 +33,8 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<InventoryProvider>().loadProducts();
     });
   }
@@ -50,6 +61,26 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   bool _isLow(ProductModel p) =>
       p.quantityAvailable <= (p.lowStockThreshold ?? 10) && !_isCritical(p);
 
+  void _handleClose() {
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
+
+    Navigator.maybePop(context);
+  }
+
+  Future<void> _handleOpenAlerts() async {
+    if (widget.onOpenAlerts != null) {
+      widget.onOpenAlerts!();
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AlertsScreen()));
+  }
+
   String _statusLabel(ProductModel p) {
     if (_isCritical(p)) return 'Critical';
     if (_isLow(p)) return 'Low';
@@ -62,6 +93,117 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     if (_isLow(p)) return const Color(0xFFFFA726);
     if (_isOverStock(p)) return const Color(0xFFEF5350);
     return const Color(0xFF66BB6A);
+  }
+
+  Future<void> _copyInventorySummary(InventoryProvider inv) async {
+    final lowCount =
+        inv.allProducts.where(_isLow).length +
+        inv.allProducts.where(_isCritical).length;
+    final overCount = inv.allProducts.where(_isOverStock).length;
+    final optimalCount = inv.allProducts.where(_isOptimalStock).length;
+
+    final lines = <String>[
+      'Inventory Management',
+      'Total items: ${inv.totalProducts}',
+      'Low stock: $lowCount',
+      'Over stock: $overCount',
+      'Optimal: $optimalCount',
+    ];
+
+    for (final product in inv.allProducts.take(5)) {
+      lines.add(
+        '${product.name}: ${product.quantityAvailable.toStringAsFixed(0)} ${product.unit.name.toUpperCase()}',
+      );
+    }
+
+    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Inventory summary copied')));
+  }
+
+  Future<void> _openMoreActions(InventoryProvider inv) async {
+    final action = await showModalBottomSheet<_InventoryAction>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _InventoryActionTile(
+                  icon: Icons.add,
+                  label: 'Add product',
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _InventoryAction.add),
+                ),
+                _InventoryActionTile(
+                  icon: Icons.refresh,
+                  label: 'Refresh inventory',
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _InventoryAction.refresh),
+                ),
+                _InventoryActionTile(
+                  icon: Icons.notifications_none,
+                  label: 'Open alerts',
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _InventoryAction.alerts),
+                ),
+                _InventoryActionTile(
+                  icon: Icons.content_copy_outlined,
+                  label: 'Copy summary',
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _InventoryAction.copy),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    switch (action) {
+      case _InventoryAction.add:
+        await _openAddProduct();
+      case _InventoryAction.refresh:
+        await inv.loadProducts();
+      case _InventoryAction.alerts:
+        await _handleOpenAlerts();
+      case _InventoryAction.copy:
+        await _copyInventorySummary(inv);
+      case null:
+        return;
+    }
+  }
+
+  Future<void> _openAddProduct() async {
+    final created = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddProductScreen()),
+    );
+
+    if (!mounted || created != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Product added successfully!'),
+        backgroundColor: kInventoryPrimary,
+      ),
+    );
   }
 
   // ── Smart insight generation ────────────────────────────────
@@ -94,7 +236,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: kInventorySurface,
       body: Consumer<InventoryProvider>(
         builder: (context, inv, _) {
           // Filtered products
@@ -122,128 +264,127 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
 
           return Column(
             children: [
-              // ── Red Header ─────────────────────────────────
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kInventoryPrimaryLight, kInventoryPrimary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title row
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => Navigator.maybePop(context),
-                              child: const Icon(
-                                Icons.arrow_back_ios,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Inventory Management',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Real-time stock tracking',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () async {
-                                final created = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const AddProductScreen(),
-                                  ),
-                                );
-
-                                if (!mounted || created != true) return;
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Product added successfully!',
-                                    ),
-                                    backgroundColor: kInventoryPrimary,
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.all(6),
-                                child: const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        // Search bar
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                            style: const TextStyle(fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: 'Search inventory',
-                              hintStyle: TextStyle(
-                                color: Color(0xFFBDBDBD),
-                                fontSize: 14,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: Color(0xFF9E9E9E),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+              _InventoryTopBar(
+                onClose: _handleClose,
+                onOpenAlerts: _handleOpenAlerts,
+                onCopy: () => _copyInventorySummary(inv),
+                onMore: () => _openMoreActions(inv),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [kInventoryPrimaryLight, kInventoryPrimary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kInventoryPrimary.withValues(alpha: 0.16),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          InkWell(
+                            onTap: _handleClose,
+                            borderRadius: BorderRadius.circular(99),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.arrow_back_ios_new,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Inventory Management',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Real-time stock tracking',
+                                  style: TextStyle(
+                                    color: Color(0xFFD9F5EF),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: _openAddProduct,
+                            borderRadius: BorderRadius.circular(99),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  width: 1.6,
+                                ),
+                                color: Colors.white.withValues(alpha: 0.08),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) =>
+                              setState(() => _searchQuery = value.trim()),
+                          decoration: const InputDecoration(
+                            hintText: 'Search inventory',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Color(0xFF6B7280),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
 
               // ── Body ───────────────────────────────────────
               Expanded(
@@ -272,7 +413,8 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => BusinessDetailsScreen(),
+                                      builder: (_) =>
+                                          const BusinessDetailsScreen(),
                                     ),
                                   );
                                 },
@@ -285,51 +427,60 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                     : RefreshIndicator(
                         onRefresh: () => inv.loadProducts(),
                         child: ListView(
-                          padding: EdgeInsets.zero,
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                           children: [
-                            const SizedBox(height: 16),
-                            // ── Stat pills ─────────────
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _StatPill(
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _StatPill(
                                     count: inv.totalProducts,
                                     label: 'Total',
-                                    color: const Color(0xFF424242),
+                                    color: const Color(0xFF44363E),
                                   ),
-                                  _StatPill(
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _StatPill(
                                     count: lowCount,
                                     label: 'Low',
-                                    color: const Color(0xFFFFA726),
+                                    color: const Color(0xFFE3A300),
                                   ),
-                                  _StatPill(
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _StatPill(
                                     count: overCount,
                                     label: 'Over',
-                                    color: const Color(0xFFEF5350),
+                                    color: const Color(0xFFE35158),
                                   ),
-                                  _StatPill(
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _StatPill(
                                     count: optimalCount,
                                     label: 'Optimal',
-                                    color: const Color(0xFF66BB6A),
+                                    color: const Color(0xFF7BAF6C),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 16),
 
                             // ── Product cards ──────────
                             if (filtered.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(32),
-                                child: Center(
+                              Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.all(28),
+                                decoration: BoxDecoration(
+                                  color: kInventoryCard,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: const Center(
                                   child: Text(
                                     'No products found.',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(
+                                      color: kInventoryTextSecondary,
+                                    ),
                                   ),
                                 ),
                               )
@@ -341,6 +492,8 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                                   statusLabel: _statusLabel(p),
                                   statusColor: _statusColor(p),
                                   onTap: () async {
+                                    final inventoryProvider = context
+                                        .read<InventoryProvider>();
                                     final changed = await Navigator.push<bool>(
                                       context,
                                       MaterialPageRoute(
@@ -349,20 +502,16 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                                       ),
                                     );
 
-                                    if (changed == true && mounted) {
-                                      await context
-                                          .read<InventoryProvider>()
-                                          .loadProducts();
+                                    if (changed == true) {
+                                      await inventoryProvider.loadProducts();
                                     }
                                   },
                                 ),
                               ),
 
                             // ── Smart Insights ─────────
-                            if (insights.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              _SmartInsightsSection(insights: insights),
-                            ],
+                            const SizedBox(height: 10),
+                            _SmartInsightsSection(insights: insights),
 
                             const SizedBox(height: 24),
                           ],
@@ -391,11 +540,10 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bg = color.withValues(alpha: 0.12);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: bg,
+        color: color.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -404,12 +552,19 @@ class _StatPill extends StatelessWidget {
             '$count',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              height: 1,
+              fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: kInventoryTextSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -444,11 +599,18 @@ class _ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          color: kInventoryCard,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F7A6B).withValues(alpha: 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,24 +619,32 @@ class _ProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Product image placeholder
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    product.name.isNotEmpty
-                        ? product.name[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFFF8A65),
-                    ),
-                  ),
+                Builder(
+                  builder: (_) {
+                    if (product.imageUrl.trim().isNotEmpty) {
+                      return CircleAvatar(
+                        radius: 21,
+                        backgroundColor: const Color(0xFFFFF4D6),
+                        onBackgroundImageError: (_, __) {},
+                        backgroundImage: NetworkImage(product.imageUrl),
+                      );
+                    }
+
+                    final colors = FoodVisuals.colorsFor(product.name);
+                    return Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Color(colors.bg),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        FoodVisuals.emojiFor(product.name),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -489,8 +659,9 @@ class _ProductCard extends StatelessWidget {
                               product.name,
                               style: const TextStyle(
                                 fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                height: 1,
+                                fontWeight: FontWeight.w700,
+                                color: kInventoryTextPrimary,
                               ),
                             ),
                           ),
@@ -501,10 +672,7 @@ class _ProductCard extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: statusColor.withValues(alpha: 0.4),
-                              ),
+                              borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
                               statusLabel,
@@ -522,7 +690,10 @@ class _ProductCard extends StatelessWidget {
                       Text(
                         product.category.name[0].toUpperCase() +
                             product.category.name.substring(1),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: kInventoryTextSecondary,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       // Stock / Optimal row
@@ -532,15 +703,15 @@ class _ProductCard extends StatelessWidget {
                             'Stock: ${product.quantityAvailable.toStringAsFixed(0)}$unitStr',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.black54,
+                              color: kInventoryTextSecondary,
                             ),
                           ),
                           const Spacer(),
                           Text(
                             'Optimal: ${optimal.toStringAsFixed(0)}$unitStr',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[400],
+                              color: kInventoryTextSecondary,
                             ),
                           ),
                         ],
@@ -556,16 +727,26 @@ class _ProductCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: pct,
-                minHeight: 6,
-                backgroundColor: const Color(0xFFEEEEEE),
+                minHeight: 5,
+                backgroundColor: const Color(0xFFE6E0E5),
                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
             ),
-            const SizedBox(height: 6),
-            // Production date
+            const SizedBox(height: 8),
             Text(
               'Production date: $prodDate',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+              style: const TextStyle(
+                fontSize: 11,
+                color: kInventoryTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'Price per unit: ${product.currency} ${product.price.toStringAsFixed(0)}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: kInventoryTextSecondary,
+              ),
             ),
           ],
         ),
@@ -596,10 +777,9 @@ class _SmartInsightsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F0),
+        color: const Color(0xFFFFF3CF),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -610,17 +790,45 @@ class _SmartInsightsSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: kInventoryTextPrimary,
             ),
           ),
           const SizedBox(height: 12),
+          if (insights.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: kInventoryPrimary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'All current stock levels look healthy.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: kInventoryTextPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ...insights.take(3).map((item) {
             final color = _labelColor(item['label'] ?? '');
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -632,17 +840,18 @@ class _SmartInsightsSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item['message'] ?? '',
+                          item['product'] ?? '',
                           style: const TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
+                            color: kInventoryTextPrimary,
                           ),
                         ),
                         Text(
-                          item['product'] ?? '',
-                          style: TextStyle(
+                          item['message'] ?? '',
+                          style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.grey[500],
+                            color: kInventoryTextSecondary,
                           ),
                         ),
                       ],
@@ -672,6 +881,95 @@ class _SmartInsightsSection extends StatelessWidget {
           }),
         ],
       ),
+    );
+  }
+}
+
+class _InventoryTopBar extends StatelessWidget {
+  final VoidCallback onClose;
+  final VoidCallback onOpenAlerts;
+  final VoidCallback onCopy;
+  final VoidCallback onMore;
+
+  const _InventoryTopBar({
+    required this.onClose,
+    required this.onOpenAlerts,
+    required this.onCopy,
+    required this.onMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 12),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: onClose,
+              icon: const Icon(Icons.close, color: Colors.black87),
+            ),
+            const Expanded(
+              child: Text(
+                'Prepal',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: onOpenAlerts,
+              icon: const Icon(Icons.notifications_none, color: Colors.black87),
+            ),
+            IconButton(
+              onPressed: onCopy,
+              icon: const Icon(
+                Icons.content_copy_outlined,
+                color: Colors.black87,
+              ),
+            ),
+            IconButton(
+              onPressed: onMore,
+              icon: const Icon(Icons.more_vert, color: Colors.black87),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _InventoryAction { add, refresh, alerts, copy }
+
+class _InventoryActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _InventoryActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: kInventoryPrimary),
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: kInventoryTextPrimary,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

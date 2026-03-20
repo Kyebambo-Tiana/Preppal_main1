@@ -72,6 +72,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> forgotPassword(String email) {
+    return remoteDataSource.forgotPassword(email);
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String password,
+  }) {
+    return remoteDataSource.resetPassword(email: email, password: password);
+  }
+
+  @override
   Future<UserModel?> getLoggedInUser() async {
     // Check token exists
     final token = serviceLocator.apiClient.getAuthToken();
@@ -95,10 +108,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   Future<void> _saveUser(UserModel user) async {
-    await sharedPreferences.setString(
-      _kUserKey,
-      json.encode(user.toJson()),
-    );
+    await sharedPreferences.setString(_kUserKey, json.encode(user.toJson()));
   }
 
   // Decodes JWT payload (middle part) without any external package
@@ -110,8 +120,12 @@ class AuthRepositoryImpl implements AuthRepository {
       String payload = parts[1];
       // Fix base64 padding
       switch (payload.length % 4) {
-        case 2: payload += '=='; break;
-        case 3: payload += '='; break;
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
       }
 
       final decoded = utf8.decode(base64Url.decode(payload));

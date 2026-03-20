@@ -366,6 +366,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final inventory = context.watch<InventoryProvider>();
     final dashboard = context.watch<DashboardProvider>();
     final forecast = context.watch<ForecastProvider>();
+    final showPlaceholderChart = forecast.sevenDayForecast.isEmpty;
+    final dashboardForecastData = showPlaceholderChart
+        ? _dashboardPlaceholderForecastData
+        : _normalizeDashboardForecastData(forecast.sevenDayForecast);
 
     // Keep dashboard synced whenever inventory rebuilds
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -403,161 +407,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     //Stats Row
                     _StatsRow(inventory: inventory),
-                    const SizedBox(height: 16),
-
-                    //Today's Demand Forecast
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Today\'s demand forecast',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const DemandForecastScreen(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            'View all (${forecast.sevenDayForecast.length})',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: kDashboardPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 12,
-                            runSpacing: 4,
-                            children: [
-                              const Text(
-                                'Predicted Sales',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              _buildLegendItem(
-                                label: 'Predicted Sales',
-                                color: kDashboardPrimary,
-                              ),
-                              _buildLegendItem(
-                                label: 'Actual Sales',
-                                color: const Color(0xFFFFC107),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const DemandForecastScreen(),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                'View all (${forecast.sevenDayForecast.length})',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: kDashboardPrimary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (forecast.isLoading)
-                            const SizedBox(
-                              height: 150,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          else if (forecast.sevenDayForecast.isEmpty)
-                            SizedBox(
-                              height: 150,
-                              child: Center(
-                                child: Text(
-                                  forecast.errorMessage ??
-                                      'No forecast data available yet',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                          else ...[
-                            SizedBox(
-                              height: 150,
-                              child: CustomPaint(
-                                size: const Size(double.infinity, 150),
-                                painter: _LineChartPainter(
-                                  data: forecast.sevenDayForecast,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: forecast.sevenDayForecast
-                                    .map(
-                                      (point) => Text(
-                                        (point['day'] as String? ?? 'Day')
-                                            .toString(),
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(growable: false),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
                     const SizedBox(height: 16),
 
                     //Daily Alert Section
@@ -695,8 +544,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(radius: 5, backgroundColor: color),
-        const SizedBox(width: 4),
+        CircleAvatar(radius: 6, backgroundColor: color),
+        const SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(fontSize: 10, color: Colors.black87),
@@ -713,32 +562,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     final isHigh = severity == 'High';
     final isMedium = severity == 'Medium';
-    final bg = isHigh
-        ? Colors.red[50]!
-        : isMedium
-        ? Colors.orange[50]!
-        : Colors.yellow[50]!;
-    final border = isHigh
-        ? Colors.red[100]!
-        : isMedium
-        ? Colors.orange[100]!
-        : Colors.yellow[100]!;
+    final bg = const Color(0xFFFFF8DC);
     final color = isHigh
-        ? Colors.red
+        ? const Color(0xFFD32F2F)
         : isMedium
-        ? Colors.orange
-        : Colors.amber;
+        ? const Color(0xFFF57C00)
+        : const Color(0xFFFBC02D);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: color),
+          Icon(Icons.error_outline, color: color, size: 18),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -747,21 +586,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                     color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isHigh ? Colors.red[100] : Colors.orange[100],
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -769,7 +613,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                 color: color,
                 fontSize: 10,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -785,13 +629,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.green[50],
+        color: const Color(0xFFF0F9F5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green[100]!),
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline, color: Colors.green),
+          const Icon(
+            Icons.check_circle_outline,
+            color: Color(0xFF66BB6A),
+            size: 18,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -800,13 +647,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                     color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
@@ -896,12 +748,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8),
+        ],
       ),
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.grey, fontSize: 13),
+        style: const TextStyle(
+          color: Color(0xFF6B7280),
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -914,21 +773,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
           color: kDashboardPrimary,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kDashboardPrimary),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: kDashboardPrimary.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            const SizedBox(height: 6),
             Text(
               title,
-              textAlign: TextAlign.start,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -972,12 +841,12 @@ class _DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
       decoration: const BoxDecoration(
         color: kDashboardPrimary,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
       ),
       child: Column(
@@ -985,11 +854,12 @@ class _DashboardHeader extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(
                 onPressed: onMenuTap,
-                icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+                icon: const Icon(Icons.menu, color: Colors.white, size: 24),
+                padding: EdgeInsets.zero,
               ),
               Expanded(
                 child: Column(
@@ -998,25 +868,28 @@ class _DashboardHeader extends StatelessWidget {
                       'Welcome',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       businessName,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                       textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       _formattedDate(),
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
+                        color: Color(0xFFD9F5EF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1028,19 +901,28 @@ class _DashboardHeader extends StatelessWidget {
                   GestureDetector(
                     onTap: onProfileTap,
                     child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white,
+                      radius: 16,
+                      backgroundColor: Colors.white.withValues(alpha: 0.9),
                       backgroundImage: profileImageBytes != null
                           ? MemoryImage(profileImageBytes!)
                           : null,
                       child: profileImageBytes == null
-                          ? const Icon(Icons.person, color: kDashboardPrimary)
+                          ? const Icon(
+                              Icons.person,
+                              color: kDashboardPrimary,
+                              size: 18,
+                            )
                           : null,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.settings, color: Colors.white),
+                    icon: const Icon(
+                      Icons.settings,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    padding: EdgeInsets.zero,
                     onSelected: (value) {
                       if (value == 'settings') {
                         onSettingsTap();
@@ -1106,17 +988,26 @@ class _DashboardHeader extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    color: Colors.white.withValues(alpha: 0.17),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1124,47 +1015,57 @@ class _DashboardHeader extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(
-                            Icons.trending_down,
+                            Icons.trending_down_outlined,
                             color: Colors.white,
                             size: 16,
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
+                          const SizedBox(width: 6),
+                          const Expanded(
                             child: Text(
                               'Waste Reduction',
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         wasteReduction,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       const Text(
                         'from last week',
-                        style: TextStyle(color: Colors.white70, fontSize: 10),
+                        style: TextStyle(
+                          color: Color(0xFFB8ECE5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       const Row(
                         children: [
                           Icon(
-                            Icons.info_outline,
-                            color: Colors.white70,
-                            size: 10,
+                            Icons.info_outlined,
+                            color: Color(0xFFB8ECE5),
+                            size: 12,
                           ),
-                          SizedBox(width: 2),
+                          SizedBox(width: 3),
                           Text(
                             'more info',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: Color(0xFFB8ECE5),
                               fontSize: 10,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -1176,11 +1077,20 @@ class _DashboardHeader extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    color: Colors.white.withValues(alpha: 0.17),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1188,25 +1098,27 @@ class _DashboardHeader extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(
-                            Icons.warning_amber,
+                            Icons.warning_amber_rounded,
                             color: Colors.white,
                             size: 16,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           const Expanded(
                             child: Text(
                               'Waste Risk levels',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.spaceBetween,
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildRiskPill(
                             'High',
@@ -1228,24 +1140,30 @@ class _DashboardHeader extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       const Text(
                         'for this week',
-                        style: TextStyle(color: Colors.white70, fontSize: 10),
+                        style: TextStyle(
+                          color: Color(0xFFB8ECE5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                      const SizedBox(height: 4),
                       const Row(
                         children: [
                           Icon(
-                            Icons.info_outline,
-                            color: Colors.white70,
-                            size: 10,
+                            Icons.info_outlined,
+                            color: Color(0xFFB8ECE5),
+                            size: 12,
                           ),
-                          SizedBox(width: 2),
+                          SizedBox(width: 3),
                           Text(
                             'more info',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: Color(0xFFB8ECE5),
                               fontSize: 10,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -1368,34 +1286,46 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(height: 10),
             Text(
               value,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -1404,31 +1334,109 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── Chart Painter (unchanged) ─────────────────────────────────
+const List<Map<String, dynamic>> _dashboardPlaceholderForecastData = [
+  {'actual': 72, 'predicted': 88},
+  {'actual': 90, 'predicted': 104},
+  {'actual': 86, 'predicted': 98},
+  {'actual': 110, 'predicted': 120},
+  {'actual': 96, 'predicted': 112},
+];
+
+const List<String> _dashboardForecastTimeLabels = [
+  '6am',
+  '9am',
+  '12 noon',
+  '3pm',
+  '6pm',
+];
+
+List<Map<String, dynamic>> _normalizeDashboardForecastData(
+  List<Map<String, dynamic>> rawData,
+) {
+  if (rawData.isEmpty) {
+    return _dashboardPlaceholderForecastData;
+  }
+
+  if (rawData.length == _dashboardForecastTimeLabels.length) {
+    return rawData
+        .map(
+          (point) => {
+            'actual': point['actual'],
+            'predicted': point['predicted'],
+          },
+        )
+        .toList(growable: false);
+  }
+
+  final normalized = <Map<String, dynamic>>[];
+  final sourceLastIndex = rawData.length - 1;
+  final targetLastIndex = _dashboardForecastTimeLabels.length - 1;
+
+  for (int i = 0; i <= targetLastIndex; i++) {
+    final mappedIndex = ((i * sourceLastIndex) / targetLastIndex).round();
+    final point = rawData[mappedIndex.clamp(0, sourceLastIndex)];
+    normalized.add({
+      'actual': point['actual'],
+      'predicted': point['predicted'],
+    });
+  }
+
+  return normalized;
+}
+
+// ── Chart Painter ─────────────────────────────────────────────
 
 class _LineChartPainter extends CustomPainter {
   final List<Map<String, dynamic>> data;
+  final bool isPlaceholder;
 
-  const _LineChartPainter({required this.data});
+  const _LineChartPainter({required this.data, this.isPlaceholder = false});
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.length < 2) return;
 
+    const leftInset = 32.0;
+    const rightInset = 6.0;
+    const topInset = 8.0;
+    const bottomInset = 20.0;
+    final chartWidth = (size.width - leftInset - rightInset) * 0.75;
+    final chartHeight = size.height - topInset - bottomInset;
+    if (chartWidth <= 0 || chartHeight <= 0) return;
+
     final paintLine1 = Paint()
-      ..color = kDashboardPrimary
-      ..strokeWidth = 2
+      ..color = isPlaceholder
+          ? kDashboardPrimary.withValues(alpha: 0.28)
+          : kDashboardPrimary
+      ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
     final paintLine2 = Paint()
-      ..color = const Color(0xFFFFC107)
-      ..strokeWidth = 2
+      ..color = isPlaceholder
+          ? const Color(0xFFFFC107).withValues(alpha: 0.28)
+          : const Color(0xFFFFC107)
+      ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
     final paintDots1 = Paint()
-      ..color = kDashboardPrimary
+      ..color = isPlaceholder
+          ? kDashboardPrimary.withValues(alpha: 0.22)
+          : kDashboardPrimary
       ..style = PaintingStyle.fill;
     final paintDots2 = Paint()
-      ..color = const Color(0xFFFFC107)
+      ..color = isPlaceholder
+          ? const Color(0xFFFFC107).withValues(alpha: 0.22)
+          : const Color(0xFFFFC107)
       ..style = PaintingStyle.fill;
+    final tickPaint = Paint()
+      ..color = isPlaceholder
+          ? Colors.grey.withValues(alpha: 0.35)
+          : Colors.black.withValues(alpha: 0.55)
+      ..strokeWidth = 1;
+    final gridPaint = Paint()
+      ..color = isPlaceholder
+          ? Colors.grey.withValues(alpha: 0.15)
+          : Colors.grey.withValues(alpha: 0.22)
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
 
     double maxY = 1;
     for (final point in data) {
@@ -1438,10 +1446,45 @@ class _LineChartPainter extends CustomPainter {
       if (predicted > maxY) maxY = predicted;
     }
 
+    maxY = 100;
+    const minY = 25.0;
+
     final count = data.length;
-    final dx = count > 1 ? size.width / (count - 1) : size.width;
-    final usableHeight = size.height * 0.9;
-    final topPadding = size.height * 0.05;
+    final dx = count > 1 ? chartWidth / (count - 1) : chartWidth;
+
+    for (int i = 0; i <= 4; i++) {
+      final t = i / 4;
+      final y = topInset + (chartHeight * t);
+
+      // Draw horizontal gridline (skip bottom axis line)
+      if (i < 4) {
+        canvas.drawLine(
+          Offset(leftInset, y),
+          Offset(leftInset + chartWidth, y),
+          gridPaint,
+        );
+      }
+
+      if (i < 4) {
+        final labelValue = (minY + ((maxY - minY) * (1 - t)))
+            .round()
+            .toString();
+        final tp = TextPainter(
+          text: TextSpan(
+            text: labelValue,
+            style: TextStyle(
+              color: isPlaceholder
+                  ? const Color(0xFFBDBDBD)
+                  : Colors.black.withValues(alpha: 0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(2, y - (tp.height / 2)));
+      }
+    }
 
     final actualPoints = <Offset>[];
     final predictedPoints = <Offset>[];
@@ -1451,43 +1494,63 @@ class _LineChartPainter extends CustomPainter {
       final actual = _asDouble(point['actual']);
       final predicted = _asDouble(point['predicted']);
 
-      final x = dx * i;
-      final actualY = topPadding + (usableHeight * (1 - (actual / maxY)));
-      final predictedY = topPadding + (usableHeight * (1 - (predicted / maxY)));
+      final x = leftInset + (dx * i);
+      final actualY =
+          topInset + (chartHeight * (1 - ((actual - minY) / (maxY - minY))));
+      final predictedY =
+          topInset + (chartHeight * (1 - ((predicted - minY) / (maxY - minY))));
 
       actualPoints.add(Offset(x, actualY));
       predictedPoints.add(Offset(x, predictedY));
     }
 
-    final actualPath = Path()
-      ..moveTo(actualPoints.first.dx, actualPoints.first.dy);
-    final predictedPath = Path()
-      ..moveTo(predictedPoints.first.dx, predictedPoints.first.dy);
-
-    for (int i = 1; i < actualPoints.length; i++) {
-      actualPath.lineTo(actualPoints[i].dx, actualPoints[i].dy);
-      predictedPath.lineTo(predictedPoints[i].dx, predictedPoints[i].dy);
-    }
+    final actualPath = _buildSmoothPath(actualPoints);
+    final predictedPath = _buildSmoothPath(predictedPoints);
 
     canvas.drawPath(actualPath, paintLine1);
     canvas.drawPath(predictedPath, paintLine2);
 
     for (final p in actualPoints) {
-      canvas.drawCircle(p, 3, paintDots1);
+      canvas.drawCircle(p, 3.5, paintDots1);
     }
     for (final p in predictedPoints) {
-      canvas.drawCircle(p, 3, paintDots2);
+      canvas.drawCircle(p, 3.5, paintDots2);
     }
 
     final axisPaint = Paint()
-      ..color = Colors.black
+      ..color = isPlaceholder
+          ? Colors.grey.withValues(alpha: 0.35)
+          : Colors.black
       ..strokeWidth = 1;
-    canvas.drawLine(const Offset(0, 0), Offset(0, size.height), axisPaint);
+
+    final xAxisY = topInset + chartHeight;
     canvas.drawLine(
-      Offset(0, size.height),
-      Offset(size.width, size.height),
+      Offset(leftInset, topInset),
+      Offset(leftInset, xAxisY),
       axisPaint,
     );
+    canvas.drawLine(
+      Offset(leftInset, xAxisY),
+      Offset(leftInset + chartWidth, xAxisY),
+      axisPaint,
+    );
+
+    for (int i = 0; i < count; i++) {
+      final x = leftInset + (dx * i);
+      canvas.drawLine(Offset(x, xAxisY), Offset(x, xAxisY + 5), tickPaint);
+    }
+  }
+
+  Path _buildSmoothPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (int i = 0; i < points.length - 1; i++) {
+      final current = points[i];
+      final next = points[i + 1];
+      final controlX1 = current.dx + ((next.dx - current.dx) * 0.35);
+      final controlX2 = current.dx + ((next.dx - current.dx) * 0.7);
+      path.cubicTo(controlX1, current.dy, controlX2, next.dy, next.dx, next.dy);
+    }
+    return path;
   }
 
   double _asDouble(Object? value) {
@@ -1498,6 +1561,7 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
-    return oldDelegate.data != data;
+    return oldDelegate.data != data ||
+        oldDelegate.isPlaceholder != isPlaceholder;
   }
 }

@@ -33,6 +33,15 @@ class ForecastProvider extends ChangeNotifier {
     return fallback;
   }
 
+  // Backends may return accuracy either as ratio (0.87) or percent (87).
+  // Normalize to ratio so UI rendering remains consistent.
+  double _normalizeAccuracyToRatio(dynamic value) {
+    final raw = _toDouble(value);
+    if (raw <= 0) return 0;
+    if (raw > 1) return (raw / 100).clamp(0.0, 1.0);
+    return raw.clamp(0.0, 1.0);
+  }
+
   ForecastStatus _status = ForecastStatus.initial;
   String? _errorMessage;
   ForecastData? _forecastData;
@@ -95,7 +104,7 @@ class ForecastProvider extends ChangeNotifier {
       final sevenDayList = _formatSevenDayForecast(sevenDay);
 
       // Extract accuracy percentage
-      final accuracyPercent = _toDouble(accuracy['accuracy']);
+      final accuracyPercent = _normalizeAccuracyToRatio(accuracy['accuracy']);
 
       // Extract AI insight message
       final insightMessage =
@@ -135,7 +144,10 @@ class ForecastProvider extends ChangeNotifier {
       return [];
     }
 
-    return daysData.cast<Map<String, dynamic>>();
+    return daysData
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
   }
 
   void clearError() {
